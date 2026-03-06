@@ -1,12 +1,10 @@
 """
 Configuration for langchain-mycelia-signal.
-
-Free mode:   No env var needed. Hits free endpoints. No signature returned.
+Free mode:   No env var needed. Hits preview endpoints. Returns unsigned price data.
 Paid mode:   Set MYCELIA_WALLET_PRIVATE_KEY to a funded Base wallet private key.
              Tool pays $0.001 per query via x402 (USDC on Base) automatically.
              Returns fully cryptographically signed attestation.
 """
-
 import os
 
 # Base URL for the Mycelia Signal API
@@ -42,16 +40,13 @@ PAIR_DESCRIPTIONS = {
     "XAUEUR":      "Gold (XAU) / Euro spot price (cross-rate: XAUUSD / EURUSD)",
 }
 
-
 def get_wallet_key() -> str | None:
     """Return the wallet private key from environment, or None if not set."""
     return os.environ.get("MYCELIA_WALLET_PRIVATE_KEY")
 
-
 def is_paid_mode() -> bool:
     """Return True if a wallet key is configured (paid mode), False otherwise."""
     return get_wallet_key() is not None
-
 
 def get_endpoint(pair: str) -> str:
     """Return the full API URL for a given pair."""
@@ -61,4 +56,7 @@ def get_endpoint(pair: str) -> str:
             f"Unsupported pair: '{pair}'. "
             f"Supported pairs: {', '.join(SUPPORTED_PAIRS.keys())}"
         )
-    return API_BASE_URL + SUPPORTED_PAIRS[pair]
+    path = SUPPORTED_PAIRS[pair]
+    if not is_paid_mode():
+        path = path + "/preview"
+    return API_BASE_URL + path
