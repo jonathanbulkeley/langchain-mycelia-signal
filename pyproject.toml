@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-mycelia-signal"
-version = "1.0.0"
+version = "1.2.0"
 description = "LangChain tools for Mycelia Signal — cryptographically signed price oracles with automatic x402 (USDC on Base) payment"
 readme = "README.md"
 license = { text = "MIT" }
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = [
     "langchain", "oracle", "bitcoin", "price", "x402", "l402",
-    "ai-agents", "crypto", "attestation", "signed-data"
+    "ai-agents", "crypto", "attestation", "signed-data", "forex", "macro"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

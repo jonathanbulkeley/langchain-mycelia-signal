@@ -4,6 +4,8 @@ langchain-mycelia-signal
 LangChain tools for Mycelia Signal — cryptographically signed price oracles
 with automatic x402 (USDC on Base) and L402 (Lightning) payment support.
 
+56 endpoints across crypto, FX, precious metals, US/EU macro, and commodities.
+
 Quick start (free tier — no config needed):
     from langchain_mycelia_signal import MyceliaSignalTools
     tools = MyceliaSignalTools().as_list()
@@ -13,7 +15,8 @@ Paid tier (signed attestations — add wallet key to .env):
 
     from langchain_mycelia_signal import MyceliaSignalTools
     tools = MyceliaSignalTools().as_list()
-    # Payment handled automatically. $0.001 USDC per query on Base.
+    # Payment handled automatically.
+    # Price pairs: $0.01 USDC per query. Econ/commodities: $0.10 per query.
 
 Docs: https://myceliasignal.com/docs
 """
@@ -59,4 +62,4 @@ class MyceliaSignalTools:
 
 
 __all__ = ["MyceliaSignalTools", "get_mycelia_price", "is_paid_mode", "SUPPORTED_PAIRS"]
-__version__ = "1.0.0"
+__version__ = "1.2.0"

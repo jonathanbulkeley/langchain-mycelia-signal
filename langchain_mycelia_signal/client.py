@@ -13,43 +13,94 @@ from typing import Any
 
 import httpx
 
-from .config import get_endpoint, get_wallet_key, is_paid_mode
+from .config import get_endpoint, get_price_usd, get_wallet_key, is_paid_mode
 
-# Request timeout in seconds
+# Request timeout in seconds — cross-rate pairs (BTC/EUR etc.) take 6-7s
 REQUEST_TIMEOUT = 30
 
 
-def _parse_response(data: dict) -> dict:
-    """Parse and clean the oracle response into a structured dict."""
-    result = {
-        "pair":      data.get("pair", ""),
-        "price":     data.get("price", ""),
-        "currency":  data.get("currency", ""),
-        "timestamp": data.get("timestamp", ""),
-        "sources":   data.get("sources", ""),
-        "method":    data.get("method", ""),
-        "signed":    False,
-    }
+def _parse_canonical(canonical: str) -> dict:
+    """
+    Parse canonical string per Oracle Attestation Spec v0.4.
 
-    # Paid responses include signature fields
-    if "signature" in data:
+    Price format:   v1|PRICE|PAIR|PRICE|CURRENCY|DECIMALS|TIMESTAMP|NONCE|SOURCES|METHOD
+    Econ format:    v1|REGION|INDICATOR|VALUE|UNIT|...|NONCE
+    """
+    parts = canonical.split("|")
+    if len(parts) < 4:
+        return {"raw": canonical}
+
+    result = {"version": parts[0], "type": parts[1]}
+
+    if parts[1] == "PRICE":
         result.update({
-            "signed":    True,
-            "signature": data.get("signature", ""),
-            "pubkey":    data.get("pubkey", ""),
-            "canonical": data.get("canonical", ""),
+            "pair":      parts[2] if len(parts) > 2 else "",
+            "price":     parts[3] if len(parts) > 3 else "",
+            "currency":  parts[4] if len(parts) > 4 else "",
+            "decimals":  parts[5] if len(parts) > 5 else "",
+            "timestamp": parts[6] if len(parts) > 6 else "",
+            "nonce":     parts[7] if len(parts) > 7 else "",
+            "sources":   parts[8].split(",") if len(parts) > 8 else [],
+            "method":    parts[9] if len(parts) > 9 else "",
+        })
+    else:
+        # Econ/commodities: v1|REGION|INDICATOR|VALUE|UNIT|...|NONCE
+        result.update({
+            "indicator": parts[2] if len(parts) > 2 else "",
+            "value":     parts[3] if len(parts) > 3 else "",
+            "unit":      parts[4] if len(parts) > 4 else "",
         })
 
     return result
 
 
+def _parse_response(data: dict) -> dict:
+    """
+    Parse oracle response into a structured dict.
+
+    Paid responses contain a canonical string (spec v0.4) with all fields.
+    Free/preview responses contain flat JSON fields directly.
+    """
+    # Paid response — parse from canonical string
+    canonical = data.get("canonical") or data.get("canonicalstring", "")
+    if canonical:
+        parsed = _parse_canonical(canonical)
+        result = {
+            "pair":      parsed.get("pair") or data.get("pair", ""),
+            "price":     parsed.get("price") or data.get("price", ""),
+            "currency":  parsed.get("currency") or data.get("currency", ""),
+            "timestamp": parsed.get("timestamp") or data.get("timestamp", ""),
+            "sources":   parsed.get("sources") or data.get("sources", []),
+            "method":    parsed.get("method") or data.get("method", ""),
+            "signed":    True,
+            "signature": data.get("signature", ""),
+            "pubkey":    data.get("pubkey", ""),
+            "canonical": canonical,
+        }
+        return result
+
+    # Free/preview response — flat JSON fields
+    return {
+        "pair":      data.get("pair", ""),
+        "price":     data.get("price", ""),
+        "currency":  data.get("currency", ""),
+        "timestamp": data.get("timestamp", ""),
+        "sources":   data.get("sources", []),
+        "method":    data.get("method", ""),
+        "signed":    False,
+    }
+
+
 def _format_result(parsed: dict) -> str:
     """Format the parsed result as a clean string for LangChain to use."""
+    sources = parsed.get("sources", [])
+    sources_str = ",".join(sources) if isinstance(sources, list) else sources
+
     lines = [
         f"Pair:      {parsed['pair']}",
         f"Price:     {parsed['price']} {parsed['currency']}",
         f"Timestamp: {parsed['timestamp']}",
-        f"Sources:   {parsed['sources']}",
+        f"Sources:   {sources_str}",
         f"Method:    {parsed['method']}",
         f"Signed:    {parsed['signed']}",
     ]
@@ -79,9 +130,8 @@ def _handle_x402_payment(payment_info: dict, wallet_key: str) -> dict | None:
         account = Account.from_key(wallet_key)
 
         # Extract payment details from the 402 response
-        # x402 protocol: WWW-Authenticate header contains payment details
         payment_required = payment_info.get("x402_payment_required", {})
-        amount = payment_required.get("maxAmountRequired", "1000")  # atomic USDC units
+        amount = payment_required.get("maxAmountRequired", "10000")  # atomic USDC units ($0.01)
         to = payment_required.get("payTo", "")
         asset = payment_required.get("asset", "")
         chain_id = payment_required.get("extra", {}).get("chainId", "8453")  # Base mainnet
@@ -121,10 +171,11 @@ def fetch_price(pair: str) -> str:
     Fetch a price attestation from Mycelia Signal.
 
     In free mode: returns price data without cryptographic signature.
-    In paid mode: automatically pays $0.001 USDC on Base via x402,
+    In paid mode: automatically pays via x402 (USDC on Base),
                   returns fully signed attestation.
     """
     url = get_endpoint(pair)
+    cost = get_price_usd(pair)
     wallet_key = get_wallet_key()
     paid = is_paid_mode()
 
@@ -132,7 +183,7 @@ def fetch_price(pair: str) -> str:
         try:
             response = client.get(url)
 
-            # 200 — success (free endpoint or already paid)
+            # 200 — success (free/preview endpoint or already paid)
             if response.status_code == 200:
                 data = response.json()
                 parsed = _parse_response(data)
@@ -141,12 +192,10 @@ def fetch_price(pair: str) -> str:
             # 402 — payment required
             if response.status_code == 402:
                 if not paid:
-                    # Free mode — return a helpful message explaining how to upgrade
                     return (
-                        f"This endpoint requires payment. "
+                        f"This endpoint requires payment ({cost} USDC per query on Base). "
                         f"Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic x402 payments "
                         f"and receive cryptographically signed attestations. "
-                        f"Cost: $0.001 USDC per query on Base. "
                         f"See: https://myceliasignal.com/docs/x402"
                     )
 
@@ -157,7 +206,6 @@ def fetch_price(pair: str) -> str:
                 if payment_headers is None:
                     return "Payment failed: could not construct x402 payment."
 
-                # Retry with payment header
                 retry = client.get(url, headers=payment_headers)
                 if retry.status_code == 200:
                     data = retry.json()
@@ -166,7 +214,6 @@ def fetch_price(pair: str) -> str:
                 else:
                     return f"Payment accepted but request failed: HTTP {retry.status_code}"
 
-            # Other errors
             return f"API error: HTTP {response.status_code} — {response.text[:200]}"
 
         except httpx.TimeoutException:
