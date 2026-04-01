@@ -112,7 +112,7 @@ Signed responses include a cryptographic signature (Ed25519) verifiable against 
 | `USDJPY`, `USDCHF`, `USDCNY`, `USDCAD` |
 | `CHFJPY`, `CHFCAD`, `CNYJPY`, `CNYCAD`, `CADJPY` |
 
-### US Economic Indicators — $0.10 per query
+### US Economic Indicators — $1.00 per query
 | Indicator | Description |
 |-----------|-------------|
 | `US_CPI` | Consumer Price Index (BLS) |
@@ -124,7 +124,7 @@ Signed responses include a cryptographic signature (Ed25519) verifiable against 
 | `US_PCE` | PCE Price Index |
 | `US_YIELD_CURVE` | 10Y-2Y Yield Spread |
 
-### EU Economic Indicators — $0.10 per query
+### EU Economic Indicators — $1.00 per query
 | Indicator | Description |
 |-----------|-------------|
 | `EU_HICP` | HICP Inflation (Eurostat) |
@@ -134,7 +134,7 @@ Signed responses include a cryptographic signature (Ed25519) verifiable against 
 | `EU_GDP` | GDP |
 | `EU_EMPLOYMENT` | Employment |
 
-### Commodities — $0.10 per query
+### Commodities — $1.00 per query
 | Indicator | Description |
 |-----------|-------------|
 | `WTI` | WTI Crude Oil |

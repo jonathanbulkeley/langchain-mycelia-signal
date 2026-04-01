@@ -4,6 +4,7 @@ HTTP client for Mycelia Signal API.
 Handles:
 - Free endpoint requests (no payment)
 - x402 payment flow (automatic USDC on Base payment)
+- DLC oracle endpoints (free and paid)
 - Response parsing and error handling
 """
 
@@ -13,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from .config import get_endpoint, get_price_usd, get_wallet_key, is_paid_mode
+from .config import get_endpoint, get_price_usd, get_wallet_key, is_paid_mode, API_BASE_URL
 
 # Request timeout in seconds — cross-rate pairs (BTC/EUR etc.) take 6-7s
 REQUEST_TIMEOUT = 30
@@ -44,7 +45,6 @@ def _parse_canonical(canonical: str) -> dict:
             "method":    parts[9] if len(parts) > 9 else "",
         })
     else:
-        # Econ/commodities: v1|REGION|INDICATOR|VALUE|UNIT|...|NONCE
         result.update({
             "indicator": parts[2] if len(parts) > 2 else "",
             "value":     parts[3] if len(parts) > 3 else "",
@@ -61,7 +61,6 @@ def _parse_response(data: dict) -> dict:
     Paid responses contain a canonical string (spec v0.4) with all fields.
     Free/preview responses contain flat JSON fields directly.
     """
-    # Paid response — parse from canonical string
     canonical = data.get("canonical") or data.get("canonicalstring", "")
     if canonical:
         parsed = _parse_canonical(canonical)
@@ -79,7 +78,6 @@ def _parse_response(data: dict) -> dict:
         }
         return result
 
-    # Free/preview response — flat JSON fields
     return {
         "pair":      data.get("pair", ""),
         "price":     data.get("price", ""),
@@ -123,20 +121,17 @@ def _handle_x402_payment(payment_info: dict, wallet_key: str) -> dict | None:
     Returns None if payment cannot be completed.
     """
     try:
-        # Import eth_account here so it's optional for free-tier users
         from eth_account import Account
         from eth_account.messages import encode_defunct
 
         account = Account.from_key(wallet_key)
 
-        # Extract payment details from the 402 response
         payment_required = payment_info.get("x402_payment_required", {})
-        amount = payment_required.get("maxAmountRequired", "10000")  # atomic USDC units ($0.01)
+        amount = payment_required.get("maxAmountRequired", "10000")
         to = payment_required.get("payTo", "")
         asset = payment_required.get("asset", "")
-        chain_id = payment_required.get("extra", {}).get("chainId", "8453")  # Base mainnet
+        chain_id = payment_required.get("extra", {}).get("chainId", "8453")
 
-        # Build payment authorization payload
         payload = {
             "from":    account.address,
             "to":      to,
@@ -146,7 +141,6 @@ def _handle_x402_payment(payment_info: dict, wallet_key: str) -> dict | None:
             "nonce":   str(int(time.time())),
         }
 
-        # Sign the payment payload
         message = encode_defunct(text=json.dumps(payload, separators=(",", ":")))
         signed = account.sign_message(message)
 
@@ -183,13 +177,11 @@ def fetch_price(pair: str) -> str:
         try:
             response = client.get(url)
 
-            # 200 — success (free/preview endpoint or already paid)
             if response.status_code == 200:
                 data = response.json()
                 parsed = _parse_response(data)
                 return _format_result(parsed)
 
-            # 402 — payment required
             if response.status_code == 402:
                 if not paid:
                     return (
@@ -199,7 +191,6 @@ def fetch_price(pair: str) -> str:
                         f"See: https://myceliasignal.com/docs/x402"
                     )
 
-                # Paid mode — handle x402 payment and retry
                 payment_info = response.json()
                 payment_headers = _handle_x402_payment(payment_info, wallet_key)
 
@@ -222,3 +213,75 @@ def fetch_price(pair: str) -> str:
             return f"Network error: {e}"
         except Exception as e:
             return f"Unexpected error fetching {pair}: {e}"
+
+
+# ── DLC ORACLE ───────────────────────────────────────────────────────────────
+
+def fetch_dlc_free(endpoint: str) -> dict | None:
+    """Fetch a free DLC endpoint (no payment required)."""
+    url = API_BASE_URL + endpoint
+    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            r = client.get(url)
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 425:
+                return {"error": "not_yet_attested", "message": "Contract has not been attested yet."}
+            return {"error": f"http_{r.status_code}", "message": r.text[:200]}
+        except Exception as e:
+            return {"error": "request_error", "message": str(e)}
+
+
+def post_dlc_with_payment(endpoint: str, body: dict) -> dict:
+    """
+    POST to a paid DLC endpoint with automatic x402 payment.
+
+    Falls back to unpaid attempt for preview endpoints.
+    Returns the response dict or an error dict.
+    """
+    url = API_BASE_URL + endpoint
+    wallet_key = get_wallet_key()
+    headers = {"Content-Type": "application/json"}
+
+    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            r = client.post(url, json=body, headers=headers)
+
+            if r.status_code == 200:
+                return r.json()
+
+            if r.status_code == 402:
+                data = r.json()
+
+                # Try x402 payment if wallet configured
+                if wallet_key and data.get("x402"):
+                    try:
+                        payment_headers = _handle_x402_payment(data, wallet_key)
+                        if payment_headers:
+                            retry = client.post(url, json=body, headers={**headers, **payment_headers})
+                            if retry.status_code == 200:
+                                return retry.json()
+                    except Exception as pay_err:
+                        return {
+                            "error": "payment_failed",
+                            "message": str(pay_err),
+                            "docs": data.get("docs", "https://myceliasignal.com/docs/dlc"),
+                        }
+
+                # No wallet — return 402 details with docs link
+                return {
+                    "error": "payment_required",
+                    "accepts": data.get("accepts", ["L402", "x402"]),
+                    "message": (
+                        "DLC contract registration requires payment (10,000 sats or $7.00 USDC). "
+                        "Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic payment."
+                    ),
+                    "docs": data.get("docs", "https://myceliasignal.com/docs/dlc"),
+                }
+
+            return {"error": f"http_{r.status_code}", "message": r.text[:200]}
+
+        except httpx.TimeoutException:
+            return {"error": "timeout", "message": f"Request timed out after {REQUEST_TIMEOUT}s."}
+        except Exception as e:
+            return {"error": "request_error", "message": str(e)}
