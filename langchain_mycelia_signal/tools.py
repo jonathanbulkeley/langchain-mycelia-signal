@@ -280,3 +280,66 @@ def dlc_list_announcements() -> str:
         lines.append(f"...and {len(announcements) - 15} more")
     lines.append("Docs: https://myceliasignal.com/docs/dlc")
     return "\n".join(lines)
+
+@tool
+def get_msvi(pair: str = "BTCUSD") -> str:
+    """
+    Get the Mycelia Signal Volatility Index (MSVI) for BTC or ETH.
+    Five-component composite volatility index: Realized Volatility (Parkinson 30D, 30%),
+    Implied Volatility (Deribit ATM, 25%), Term Structure 7D/90D (15%),
+    Funding Rate signal (20%), Put/Call Ratio (10%). Output: 0-100 index.
+    Cryptographically signed with Ed25519 on paid queries.
+    Pricing: 500 sats (L402) / $0.05 USDC (x402).
+    Args:
+        pair: Asset pair — "BTCUSD" or "ETHUSD". Default: "BTCUSD".
+    Returns:
+        Formatted string with MSVI value, regime, components, and signature.
+    Examples:
+        get_msvi("BTCUSD")
+        get_msvi("ETHUSD")
+    """
+    from .client import fetch_index
+    return fetch_index("MSVI", pair)
+
+
+@tool
+def get_msxi(pair: str = "BTCUSD") -> str:
+    """
+    Get the Mycelia Signal Sentiment Index (MSXI) for BTC or ETH.
+    Five-component market sentiment index: Funding Rate direction (30%),
+    Options Skew 25D risk reversal (25%), Put/Call Ratio (20%),
+    Term Structure slope (15%), Cross-exchange Basis (10%).
+    Output: -100 to +100. Positive=bullish, negative=bearish.
+    Regimes: EXTREMEBULLISH, BULLISH, NEUTRAL, BEARISH, EXTREMEBEARISH.
+    Cryptographically signed with Ed25519 on paid queries.
+    Pricing: 500 sats (L402) / $0.05 USDC (x402).
+    Args:
+        pair: Asset pair — "BTCUSD" or "ETHUSD". Default: "BTCUSD".
+    Returns:
+        Formatted string with MSXI value, regime, components, and signature.
+    Examples:
+        get_msxi("BTCUSD")
+        get_msxi("ETHUSD")
+    """
+    from .client import fetch_index
+    return fetch_index("MSXI", pair)
+
+
+@tool
+def get_mssi() -> str:
+    """
+    Get the Mycelia Signal Stress Index (MSSI) — market-wide systemic stress indicator.
+    Three-component stress index: Volatility Regime via MSVI average BTC+ETH (35%),
+    Stablecoin Stress — max USDT/USDC deviation from $1.00 (30%),
+    Funding Extremity — absolute z-score of OI-weighted composite (35%).
+    Output: 0-100. Regimes: CALM, ELEVATED, HIGH, EXTREME.
+    Market-wide single number — not per-pair.
+    Cryptographically signed with Ed25519 on paid queries.
+    Pricing: 500 sats (L402) / $0.05 USDC (x402).
+    Returns:
+        Formatted string with MSSI value, regime, components, and signature.
+    Examples:
+        get_mssi()
+    """
+    from .client import fetch_index
+    return fetch_index("MSSI", "MARKET")

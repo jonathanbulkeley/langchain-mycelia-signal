@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-mycelia-signal"
-version = "1.3.0"
+version = "1.3.2"
 description = "LangChain tools for Mycelia Signal — cryptographically signed price oracles with automatic x402 (USDC on Base) payment"
 readme = "README.md"
 license = { text = "MIT" }

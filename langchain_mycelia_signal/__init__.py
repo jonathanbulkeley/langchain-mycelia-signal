@@ -4,7 +4,7 @@ langchain-mycelia-signal
 LangChain tools for Mycelia Signal — cryptographically signed price oracles
 with automatic x402 (USDC on Base) and L402 (Lightning) payment support.
 
-56 price/FX/macro/commodity endpoints plus Bitcoin DLC oracle.
+66 endpoints: price/FX/macro/commodity, MSVI/MSXI/MSSI market indices, plus Bitcoin DLC oracle.
 
 Quick start (free tier — no config needed):
     from langchain_mycelia_signal import MyceliaSignalTools
@@ -30,6 +30,9 @@ from .tools import (
     dlc_register_threshold,
     dlc_threshold_preview,
     get_mycelia_price,
+    get_msvi,
+    get_msxi,
+    get_mssi,
 )
 
 
@@ -37,7 +40,7 @@ class MyceliaSignalTools:
     """
     Container for Mycelia Signal LangChain tools.
 
-    Includes 56 price/FX/macro/commodity tools plus 4 DLC oracle tools.
+    Includes 66 tools: price/FX/macro/commodity, MSVI/MSXI/MSSI market indices, plus 4 DLC oracle tools.
 
     Example:
         from langchain_mycelia_signal import MyceliaSignalTools
@@ -52,11 +55,17 @@ class MyceliaSignalTools:
         """Return all Mycelia Signal tools as a list for use with LangChain agents."""
         return [
             get_mycelia_price,
+            get_msvi,
+            get_msxi,
+            get_mssi,
             dlc_threshold_preview,
             dlc_register_threshold,
             dlc_get_attestation,
             dlc_list_announcements,
         ]
+    def index_tools(self) -> list:
+        """Return only the market index tools (MSVI, MSXI, MSSI)."""
+        return [get_msvi, get_msxi, get_mssi]
 
     def price_tools(self) -> list:
         """Return only the price/FX/macro/commodity tools."""
@@ -97,7 +106,10 @@ __all__ = [
     "dlc_register_threshold",
     "dlc_get_attestation",
     "dlc_list_announcements",
+    "get_msvi",
+    "get_msxi",
+    "get_mssi",
     "is_paid_mode",
     "SUPPORTED_PAIRS",
 ]
-__version__ = "1.3.0"
+__version__ = "1.3.2"

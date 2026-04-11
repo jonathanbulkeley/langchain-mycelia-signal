@@ -26,9 +26,15 @@ SUPPORTED_PAIRS = {
     "XRPUSD":           "/oracle/price/xrp/usd",
     "ADAUSD":           "/oracle/price/ada/usd",
     "DOGEUSD":          "/oracle/price/doge/usd",
-    # ── Crypto VWAP ───────────────────────────────────────────────────────────
+    # ── Stablecoin pegs ───────────────────────────────────────────────────────────
+    "USDTUSD":          "/oracle/price/usdt/usd",
+    "USDCUSD":          "/oracle/price/usdc/usd",
+    "USDTEUR":          "/oracle/price/usdt/eur",
+    "USDTJPY":          "/oracle/price/usdt/jpy",
+    # ── Crypto VWAP ───────────────────────────────────────────────────────────────
     "BTCUSD_VWAP":      "/oracle/price/btc/usd/vwap",
     "BTCEUR_VWAP":      "/oracle/price/btc/eur/vwap",
+    "ETHUSD_VWAP":      "/oracle/price/eth/usd/vwap",
     # ── Precious metals ───────────────────────────────────────────────────────
     "XAUUSD":           "/oracle/price/xau/usd",
     "XAUEUR":           "/oracle/price/xau/eur",
@@ -76,6 +82,23 @@ SUPPORTED_PAIRS = {
     "NATGAS":           "/oracle/econ/commodities/natgas",
     "COPPER":           "/oracle/econ/commodities/copper",
     "DXY":              "/oracle/econ/commodities/dxy",
+}
+
+# ── Market index endpoints ────────────────────────────────────────────────────
+INDEX_ENDPOINTS = {
+    "MSVI_BTCUSD": "/oracle/volatility/btc/usd",
+    "MSVI_ETHUSD": "/oracle/volatility/eth/usd",
+    "MSXI_BTCUSD": "/oracle/sentiment/btc/usd",
+    "MSXI_ETHUSD": "/oracle/sentiment/eth/usd",
+    "MSSI_MARKET": "/oracle/stress/market",
+}
+
+INDEX_PREVIEW_ENDPOINTS = {
+    "MSVI_BTCUSD": "/oracle/volatility/btc/usd/preview",
+    "MSVI_ETHUSD": "/oracle/volatility/eth/usd/preview",
+    "MSXI_BTCUSD": "/oracle/sentiment/btc/usd/preview",
+    "MSXI_ETHUSD": "/oracle/sentiment/eth/usd/preview",
+    "MSSI_MARKET": "/oracle/stress/market/preview",
 }
 
 # Pricing tiers — econ/commodities are $0.10, everything else is $0.01

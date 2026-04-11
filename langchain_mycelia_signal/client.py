@@ -285,3 +285,56 @@ def post_dlc_with_payment(endpoint: str, body: dict) -> dict:
             return {"error": "timeout", "message": f"Request timed out after {REQUEST_TIMEOUT}s."}
         except Exception as e:
             return {"error": "request_error", "message": str(e)}
+
+def fetch_index(index_type: str, pair: str) -> str:
+    """
+    Fetch a market index (MSVI, MSXI, MSSI) from Mycelia Signal.
+    Uses preview endpoint in free mode, paid endpoint with wallet key.
+    """
+    from .config import INDEX_ENDPOINTS, INDEX_PREVIEW_ENDPOINTS, API_BASE_URL
+    key = f"{index_type}_{pair}"
+    wallet_key = os.environ.get("MYCELIA_WALLET_PRIVATE_KEY", "").strip()
+
+    if wallet_key:
+        endpoint = INDEX_ENDPOINTS.get(key)
+    else:
+        endpoint = INDEX_PREVIEW_ENDPOINTS.get(key)
+
+    if not endpoint:
+        return f"Unknown index: {index_type} {pair}. Valid: MSVI/MSXI (BTCUSD/ETHUSD), MSSI (MARKET)."
+
+    url = f"{API_BASE_URL}{endpoint}"
+    try:
+        with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+            r = client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+                canonical = data.get("canonical", "")
+                parts = canonical.split("|") if canonical else []
+                value   = data.get("value", parts[4] if len(parts) > 4 else "?")
+                regime  = data.get("regime", parts[7].replace("REGIME:", "") if len(parts) > 7 else "?")
+                conf    = data.get("confidence", "?")
+                sig     = data.get("signature", "")
+                scope   = data.get("pair", data.get("scope", pair))
+                lines = [
+                    f"{index_type} {scope}: {value} — {regime}",
+                    f"Confidence: {conf}",
+                ]
+                if len(parts) > 6:
+                    lines.append(f"Components: {parts[6]}")
+                if sig:
+                    lines.append(f"Signature: {sig[:16]}... (Ed25519)")
+                lines.append("Docs: https://myceliasignal.com/docs/indices/")
+                return "\n".join(lines)
+
+            if r.status_code == 402:
+                return (
+                    f"{index_type} {pair}: Payment required (500 sats / $0.05 USDC). "
+                    "Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic payment. "
+                    "Docs: https://myceliasignal.com/docs/indices/"
+                )
+            return f"Error {r.status_code}: {r.text[:200]}"
+    except httpx.TimeoutException:
+        return f"Timeout fetching {index_type} {pair}."
+    except Exception as e:
+        return f"Error: {e}"
