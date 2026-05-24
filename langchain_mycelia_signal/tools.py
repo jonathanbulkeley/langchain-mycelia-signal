@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from .client import fetch_dlc_free, fetch_json, fetch_price, post_dlc_with_payment, _format_json
 from .config import (
     API_BASE_URL, DERIVATIVES, GAS_CHAINS, INDICES, SUPPORTED_PAIRS,
-    get_generic_endpoint, is_paid_mode,
+    DEFI_YIELD_ENDPOINTS, get_generic_endpoint, is_paid_mode,
 )
 
 
@@ -203,6 +203,39 @@ def get_mycelia_gas(chain: str) -> str:
     url = get_generic_endpoint(GAS_CHAINS, key)
     data = fetch_json(url)
     return _format_json(data, f"Gas — {chain.upper()}")
+
+
+# ── DEFI YIELD ORACLE ─────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_defi_yield(query: str) -> str:
+    """
+    Get on-chain DeFi lending rates from Mycelia Signal.
+
+    Reads directly from smart contracts on 7 chains. Covers Aave V3, Spark,
+    Compound V3, Venus, Benqi, Moonwell. Returns supply APR, borrow APR,
+    and protocol/chain breakdown. $0.05 per query.
+
+    Args:
+        query: One of:
+            'all' — all 40 rates across all protocols and chains
+            'compare' — USDC rates ranked across all protocols
+            'best_usdc' — best USDC supply yield
+            'best_usdt' — best USDT supply yield
+            'best_weth' — best WETH supply yield
+            'best_dai' — best DAI supply yield
+            'best_wbtc' — best WBTC supply yield
+            'catalogue' — list all protocols and chains (free)
+    """
+    key = query.upper().replace(" ", "_")
+    if key not in DEFI_YIELD_ENDPOINTS:
+        return f"Unknown query '{query}'. Use: all, compare, best_usdc, best_usdt, best_weth, best_dai, best_wbtc, catalogue"
+    path = DEFI_YIELD_ENDPOINTS[key]
+    if key != "CATALOGUE" and not is_paid_mode():
+        path += "/preview"
+    url = API_BASE_URL + path
+    data = fetch_json(url)
+    return _format_json(data, f"DeFi Yield — {query}")
 
 
 # ── COT (COMMITMENTS OF TRADERS) ─────────────────────────────────────────────

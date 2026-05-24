@@ -198,7 +198,7 @@ class TestMyceliaSignalTools:
         from langchain_mycelia_signal import MyceliaSignalTools
         tools = MyceliaSignalTools().as_list()
         assert isinstance(tools, list)
-        assert len(tools) == 15
+        assert len(tools) == 16
 
     def test_price_tools_returns_1(self):
         from langchain_mycelia_signal import MyceliaSignalTools
@@ -214,7 +214,7 @@ class TestMyceliaSignalTools:
 
     def test_data_tools_returns_4(self):
         from langchain_mycelia_signal import MyceliaSignalTools
-        assert len(MyceliaSignalTools().data_tools()) == 4
+        assert len(MyceliaSignalTools().data_tools()) == 5
 
     def test_dlc_tools_returns_6(self):
         from langchain_mycelia_signal import MyceliaSignalTools
@@ -238,5 +238,5 @@ class TestMyceliaSignalTools:
     def test_repr(self):
         from langchain_mycelia_signal import MyceliaSignalTools
         r = repr(MyceliaSignalTools())
-        assert "tools=15" in r
+        assert "tools=16" in r
         assert "indices=6" in r

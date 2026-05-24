@@ -27,7 +27,7 @@ from langchain_mycelia_signal import MyceliaSignalTools
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_openai import ChatOpenAI
 
-tools = MyceliaSignalTools().as_list()  # 15 tools covering 117 endpoints
+tools = MyceliaSignalTools().as_list()  # 16 tools covering 117 endpoints
 
 llm = ChatOpenAI(model="gpt-4o")
 agent = create_tool_calling_agent(llm, tools, prompt)
@@ -160,6 +160,21 @@ get_mycelia_gas.invoke({"chain": "INDEX"})     # $0.05 — cross-chain compariso
 
 **Chains:** ETHEREUM, BASE, ARBITRUM, POLYGON, OPTIMISM, SOLANA, INDEX
 
+### `get_mycelia_defi_yield` — DeFi Yield Oracle ($0.05)
+
+On-chain lending rates from 7 protocols across 7 chains. Direct smart contract reads.
+
+```python
+get_mycelia_defi_yield.invoke({"query": "compare"})     # USDC rates across all protocols
+get_mycelia_defi_yield.invoke({"query": "best_usdc"})   # Best USDC supply yield
+get_mycelia_defi_yield.invoke({"query": "all"})         # All 40 rates
+get_mycelia_defi_yield.invoke({"query": "catalogue"})   # Free — list protocols
+```
+
+**Queries:** all, compare, best_usdc, best_usdt, best_weth, best_dai, best_wbtc, catalogue
+**Protocols:** Aave V3, Spark, Compound V3, Venus, Benqi, Moonwell
+**Chains:** Ethereum, Base, Arbitrum, Polygon, Optimism, Avalanche, BNB
+
 ### `get_mycelia_cot` — COT Data ($1.00)
 
 CFTC Commitments of Traders for Bitcoin CME futures. Weekly data, auto-refreshed Fridays.
@@ -194,11 +209,11 @@ dlc_list_announcements.invoke({})
 from langchain_mycelia_signal import MyceliaSignalTools
 
 tools = MyceliaSignalTools()
-tools.as_list()            # All 15 tools
+tools.as_list()            # All 16 tools
 tools.price_tools()        # Just price/FX/macro
 tools.index_tools()        # Just MSVI/MSXI/MSSI/MSTI
 tools.derivatives_tools()  # Funding, OI, basis
-tools.data_tools()         # Weather, marine, gas, COT
+tools.data_tools()         # Weather, marine, gas, DeFi yield, COT
 tools.dlc_tools()          # All 6 DLC tools
 ```
 

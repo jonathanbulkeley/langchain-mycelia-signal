@@ -130,6 +130,19 @@ GAS_CHAINS = {
     "INDEX": "/oracle/gas/index",
 }
 
+# ── DeFi Yield Oracle ─────────────────────────────────────────────────────────
+
+DEFI_YIELD_ENDPOINTS = {
+    "ALL": "/oracle/defi/yield/all",
+    "COMPARE": "/oracle/defi/yield/compare",
+    "BEST_USDC": "/oracle/defi/yield/best/usdc",
+    "BEST_USDT": "/oracle/defi/yield/best/usdt",
+    "BEST_WETH": "/oracle/defi/yield/best/weth",
+    "BEST_DAI": "/oracle/defi/yield/best/dai",
+    "BEST_WBTC": "/oracle/defi/yield/best/wbtc",
+    "CATALOGUE": "/oracle/defi/yield/catalogue",
+}
+
 # ── Pricing tiers ─────────────────────────────────────────────────────────────
 
 ECON_COMMODITIES_PAIRS = {
