@@ -27,7 +27,7 @@ from langchain_mycelia_signal import MyceliaSignalTools
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_openai import ChatOpenAI
 
-tools = MyceliaSignalTools().as_list()  # 16 tools covering 117 endpoints
+tools = MyceliaSignalTools().as_list()  # 17 tools covering 117 endpoints
 
 llm = ChatOpenAI(model="gpt-4o")
 agent = create_tool_calling_agent(llm, tools, prompt)
@@ -160,6 +160,22 @@ get_mycelia_gas.invoke({"chain": "INDEX"})     # $0.05 — cross-chain compariso
 
 **Chains:** ETHEREUM, BASE, ARBITRUM, POLYGON, OPTIMISM, SOLANA, INDEX
 
+
+
+### `get_mycelia_compute` — GPU Compute Oracle ($0.05)
+
+Real-time GPU pricing from AWS Spot, Vast.ai, RunPod, Akash. 80+ models normalized to $/GPU-hour.
+
+```python
+get_mycelia_compute.invoke({"query": "compare"})        # Cheapest per model
+get_mycelia_compute.invoke({"query": "best_h100_sxm"})  # Best H100 SXM price
+get_mycelia_compute.invoke({"query": "all"})            # All 575+ prices
+get_mycelia_compute.invoke({"query": "catalogue"})      # Free — list models
+```
+
+**Queries:** all, compare, best_h100_sxm, best_a100_sxm, best_h200, best_rtx_4090, best_l40s, best_mi300x, catalogue
+**Sources:** AWS Spot, Vast.ai, RunPod, Akash Network
+
 ### `get_mycelia_defi_yield` — DeFi Yield Oracle ($0.05)
 
 On-chain lending rates from 7 protocols across 7 chains. Direct smart contract reads.
@@ -209,7 +225,7 @@ dlc_list_announcements.invoke({})
 from langchain_mycelia_signal import MyceliaSignalTools
 
 tools = MyceliaSignalTools()
-tools.as_list()            # All 16 tools
+tools.as_list()            # All 17 tools
 tools.price_tools()        # Just price/FX/macro
 tools.index_tools()        # Just MSVI/MSXI/MSSI/MSTI
 tools.derivatives_tools()  # Funding, OI, basis

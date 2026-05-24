@@ -1,5 +1,5 @@
 """
-Tests for langchain-mycelia-signal v2.0.0.
+Tests for langchain-mycelia-signal v2.2.0.
 """
 import os
 import pytest
@@ -176,6 +176,14 @@ class TestTools:
         assert isinstance(get_mycelia_weather, BaseTool)
 
     def test_gas_tool_is_callable(self):
+
+    def test_compute_tool_is_callable(self):
+        from langchain_mycelia_signal.tools import get_mycelia_compute
+        assert isinstance(get_mycelia_compute, BaseTool)
+
+    def test_defi_yield_tool_is_callable(self):
+        from langchain_mycelia_signal.tools import get_mycelia_defi_yield
+        assert isinstance(get_mycelia_defi_yield, BaseTool)
         from langchain_mycelia_signal.tools import get_mycelia_gas
         assert isinstance(get_mycelia_gas, BaseTool)
 
@@ -198,7 +206,7 @@ class TestMyceliaSignalTools:
         from langchain_mycelia_signal import MyceliaSignalTools
         tools = MyceliaSignalTools().as_list()
         assert isinstance(tools, list)
-        assert len(tools) == 16
+        assert len(tools) == 17
 
     def test_price_tools_returns_1(self):
         from langchain_mycelia_signal import MyceliaSignalTools
@@ -214,7 +222,7 @@ class TestMyceliaSignalTools:
 
     def test_data_tools_returns_4(self):
         from langchain_mycelia_signal import MyceliaSignalTools
-        assert len(MyceliaSignalTools().data_tools()) == 5
+        assert len(MyceliaSignalTools().data_tools()) == 6
 
     def test_dlc_tools_returns_6(self):
         from langchain_mycelia_signal import MyceliaSignalTools
@@ -238,5 +246,5 @@ class TestMyceliaSignalTools:
     def test_repr(self):
         from langchain_mycelia_signal import MyceliaSignalTools
         r = repr(MyceliaSignalTools())
-        assert "tools=16" in r
+        assert "tools=17" in r
         assert "indices=6" in r

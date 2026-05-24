@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from .client import fetch_dlc_free, fetch_json, fetch_price, post_dlc_with_payment, _format_json
 from .config import (
     API_BASE_URL, DERIVATIVES, GAS_CHAINS, INDICES, SUPPORTED_PAIRS,
-    DEFI_YIELD_ENDPOINTS, get_generic_endpoint, is_paid_mode,
+    DEFI_YIELD_ENDPOINTS, COMPUTE_ENDPOINTS, get_generic_endpoint, is_paid_mode,
 )
 
 
@@ -236,6 +236,42 @@ def get_mycelia_defi_yield(query: str) -> str:
     url = API_BASE_URL + path
     data = fetch_json(url)
     return _format_json(data, f"DeFi Yield — {query}")
+
+
+
+# ── GPU COMPUTE ORACLE ───────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_compute(query: str) -> str:
+    """
+    Get real-time GPU compute pricing from Mycelia Signal.
+
+    Aggregates pricing from AWS Spot, Vast.ai, RunPod, Akash Network.
+    Normalized to $/GPU-hour. 80+ GPU models. $0.05 per query.
+
+    Args:
+        query: One of:
+            'all' — all 575+ prices across 80+ models
+            'compare' — cheapest price per model, ranked
+            'best_h100_sxm' — best H100 SXM price
+            'best_a100_sxm' — best A100 SXM price
+            'best_h200' — best H200 price
+            'best_rtx_4090' — best RTX 4090 price
+            'best_l40s' — best L40S price
+            'best_mi300x' — best MI300X price
+            'best_v100' — best V100 price
+            'best_t4' — best T4 price
+            'catalogue' — list all models and sources (free)
+    """
+    key = query.upper().replace(" ", "_")
+    if key not in COMPUTE_ENDPOINTS:
+        return f"Unknown query '{query}'. Use: all, compare, best_h100_sxm, best_a100_sxm, best_h200, best_rtx_4090, best_l40s, catalogue"
+    path = COMPUTE_ENDPOINTS[key]
+    if key != "CATALOGUE" and not is_paid_mode():
+        path += "/preview"
+    url = API_BASE_URL + path
+    data = fetch_json(url)
+    return _format_json(data, f"GPU Compute — {query}")
 
 
 # ── COT (COMMITMENTS OF TRADERS) ─────────────────────────────────────────────

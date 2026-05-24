@@ -207,3 +207,19 @@ def get_generic_endpoint(endpoint_map: dict, key: str) -> str:
     if not is_paid_mode():
         path = path + "/preview"
     return API_BASE_URL + path
+
+# ── GPU Compute Oracle ────────────────────────────────────────────────────────
+
+COMPUTE_ENDPOINTS = {
+    "ALL": "/oracle/compute/all",
+    "COMPARE": "/oracle/compute/compare",
+    "BEST_H100_SXM": "/oracle/compute/best/h100_sxm",
+    "BEST_A100_SXM": "/oracle/compute/best/a100_sxm",
+    "BEST_H200": "/oracle/compute/best/h200",
+    "BEST_RTX_4090": "/oracle/compute/best/rtx_4090",
+    "BEST_L40S": "/oracle/compute/best/l40s",
+    "BEST_MI300X": "/oracle/compute/best/mi300x",
+    "BEST_V100": "/oracle/compute/best/v100",
+    "BEST_T4": "/oracle/compute/best/t4",
+    "CATALOGUE": "/oracle/compute/catalogue",
+}

@@ -38,6 +38,7 @@ from .tools import (
     dlc_threshold_preview,
     get_mycelia_basis,
     get_mycelia_cot,
+    get_mycelia_compute,
     get_mycelia_defi_yield,
     get_mycelia_funding,
     get_mycelia_gas,
@@ -78,8 +79,11 @@ class MyceliaSignalTools:
             get_mycelia_marine_seastate,
             # Gas
             get_mycelia_gas,
+            # GPU Compute
+            get_mycelia_compute,
             # DeFi Yield
-            get_mycelia_defi_yield,
+            get_mycelia_compute,
+    get_mycelia_defi_yield,
             # COT
             get_mycelia_cot,
             # DLC oracle
@@ -105,7 +109,7 @@ class MyceliaSignalTools:
 
     def data_tools(self) -> list:
         """Return weather, marine, gas, and COT tools."""
-        return [get_mycelia_weather, get_mycelia_marine_seastate, get_mycelia_gas, get_mycelia_defi_yield, get_mycelia_cot]
+        return [get_mycelia_weather, get_mycelia_marine_seastate, get_mycelia_gas, get_mycelia_defi_yield, get_mycelia_compute, get_mycelia_cot]
 
     def dlc_tools(self) -> list:
         """Return all DLC oracle tools (threshold, enum, numeric, attestation, list)."""
@@ -147,6 +151,7 @@ __all__ = [
     "get_mycelia_weather",
     "get_mycelia_marine_seastate",
     "get_mycelia_gas",
+    "get_mycelia_compute",
     "get_mycelia_defi_yield",
     "get_mycelia_cot",
     "dlc_threshold_preview",
@@ -160,4 +165,4 @@ __all__ = [
     "INDICES",
     "DERIVATIVES",
 ]
-__version__ = "2.1.0"
+__version__ = "2.2.0"
