@@ -3,98 +3,245 @@ LangChain tools for Mycelia Signal oracle data.
 
 Usage:
     from langchain_mycelia_signal import MyceliaSignalTools
-
     tools = MyceliaSignalTools().as_list()
-    # Pass tools to your LangChain agent
 """
 
 from langchain_core.tools import tool
 
-from .client import fetch_dlc_free, fetch_price, post_dlc_with_payment
-from .config import PAIR_DESCRIPTIONS, SUPPORTED_PAIRS
+from .client import fetch_dlc_free, fetch_json, fetch_price, post_dlc_with_payment, _format_json
+from .config import (
+    API_BASE_URL, DERIVATIVES, GAS_CHAINS, INDICES, SUPPORTED_PAIRS,
+    get_generic_endpoint, is_paid_mode,
+)
 
+
+# ── PRICE / FX / MACRO / COMMODITIES ─────────────────────────────────────────
 
 @tool
 def get_mycelia_price(pair: str) -> str:
     """
     Get a real-time price attestation from Mycelia Signal oracle.
 
-    Returns cryptographically signed price data for the requested trading pair.
-    Each response includes the price, timestamp, sources, aggregation method,
-    and (in paid mode) a cryptographic signature for on-chain verification.
+    Returns cryptographically signed price data for the requested pair.
 
-    CRYPTO SPOT (10 sats / $0.01):
-        BTCUSD, BTCEUR, BTCJPY
-        ETHUSD, ETHEUR, ETHJPY
-        SOLUSD, SOLEUR, SOLJPY
-        XRPUSD, ADAUSD, DOGEUSD
-
-    CRYPTO VWAP — 5-minute (20 sats / $0.02):
-        BTCUSD_VWAP, BTCEUR_VWAP
-
-    PRECIOUS METALS (10 sats / $0.01):
-        XAUUSD, XAUEUR, XAUJPY
-
-    FX PAIRS (10 sats / $0.01):
-        EURUSD, EURJPY, EURGBP, EURCHF, EURCNY, EURCAD
-        GBPUSD, GBPJPY, GBPCHF, GBPCNY, GBPCAD
-        USDJPY, USDCHF, USDCNY, USDCAD
-        CHFJPY, CHFCAD, CNYJPY, CNYCAD, CADJPY
-
-    US ECONOMIC INDICATORS (1000 sats / $0.10):
-        US_CPI, US_CPI_CORE, US_UNRATE, US_NFP
+    CRYPTO SPOT ($0.01): BTCUSD, BTCEUR, BTCJPY, ETHUSD, ETHEUR, ETHJPY,
+        SOLUSD, SOLEUR, SOLJPY, XRPUSD, ADAUSD, DOGEUSD, USDTUSD, USDCUSD
+    CRYPTO VWAP ($0.02): BTCUSD_VWAP, BTCEUR_VWAP
+    PRECIOUS METALS ($0.01): XAUUSD, XAUEUR, XAUJPY
+    FX ($0.01): EURUSD, EURJPY, EURGBP, EURCHF, EURCNY, EURCAD,
+        GBPUSD, GBPJPY, GBPCHF, GBPCNY, GBPCAD, USDJPY, USDCHF, USDCNY,
+        USDCAD, CHFJPY, CHFCAD, CNYJPY, CNYCAD, CADJPY
+    US ECONOMIC ($0.10): US_CPI, US_CPI_CORE, US_UNRATE, US_NFP,
         US_FEDFUNDS, US_GDP, US_PCE, US_YIELD_CURVE
-
-    EU ECONOMIC INDICATORS (1000 sats / $0.10):
-        EU_HICP, EU_HICP_CORE, EU_HICP_SERVICES
+    EU ECONOMIC ($0.10): EU_HICP, EU_HICP_CORE, EU_HICP_SERVICES,
         EU_UNRATE, EU_GDP, EU_EMPLOYMENT
-
-    COMMODITIES (1000 sats / $0.10):
-        WTI, BRENT, NATGAS, COPPER, DXY
+    COMMODITIES ($0.10): WTI, BRENT, NATGAS, COPPER, DXY
 
     Args:
-        pair: The trading pair or indicator to query. Use uppercase with no slash,
-              e.g. 'BTCUSD', 'EURUSD', 'XAUUSD', 'US_CPI', 'WTI'.
-              VWAP variants use underscore suffix: 'BTCUSD_VWAP'.
-
-    Returns:
-        Formatted string with price, timestamp, source count, method,
-        and signature fields (signed attestation in paid mode).
-
-    Examples:
-        get_mycelia_price("BTCUSD")
-        get_mycelia_price("EURUSD")
-        get_mycelia_price("XAUUSD")
-        get_mycelia_price("US_CPI")
-        get_mycelia_price("WTI")
-        get_mycelia_price("BTCUSD_VWAP")
+        pair: Trading pair or indicator. Uppercase, no slash.
+              e.g. 'BTCUSD', 'EURUSD', 'US_CPI', 'WTI'.
     """
     return fetch_price(pair)
 
+
+# ── INDICES ───────────────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_index(index: str) -> str:
+    """
+    Get a Mycelia Signal market index reading.
+
+    Four proprietary indices computed from cross-exchange derivatives data:
+
+    MSVI_BTC — Bitcoin Volatility Index (RV/IV ratio, options flow, term structure)
+    MSVI_ETH — Ethereum Volatility Index
+    MSXI_BTC — Bitcoin Sentiment Index (funding rates, skew, PCR, basis). -100 to +100.
+    MSXI_ETH — Ethereum Sentiment Index
+    MSSI — Market Stress Index (vol acceleration, stablecoin peg, funding extremes, dispersion). 0-100.
+    MSTI — Crypto-TradFi Contagion Index (BTC-equity correlation, equity vol, DXY). 0-100.
+
+    Each returns: value, regime (e.g. CALM/ELEVATED/HIGH/EXTREME), confidence,
+    component breakdown, and (in paid mode) cryptographic signature.
+    $0.05 per query.
+
+    Args:
+        index: Index name. One of: MSVI_BTC, MSVI_ETH, MSXI_BTC, MSXI_ETH, MSSI, MSTI.
+    """
+    url = get_generic_endpoint(INDICES, index)
+    data = fetch_json(url)
+    if data.get("error"):
+        return f"Error: {data.get('message', data['error'])}"
+
+    lines = [f"{index.upper()} Index"]
+    lines.append(f"Value:      {data.get('value', '?')}")
+    lines.append(f"Regime:     {data.get('regime', '?')}")
+    lines.append(f"Confidence: {data.get('confidence', '?')}")
+    if data.get("components"):
+        lines.append("Components:")
+        for k, v in data["components"].items():
+            if isinstance(v, dict):
+                lines.append(f"  {k}: {v.get('value', '?')} (weight {v.get('weight', '?')})")
+            else:
+                lines.append(f"  {k}: {v}")
+    lines.append(f"Signed:     {data.get('signed', False)}")
+    return "\n".join(lines)
+
+
+# ── DERIVATIVES DATA ──────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_funding(currency: str) -> str:
+    """
+    Get cross-exchange perpetual funding rate data from Mycelia Signal.
+
+    Aggregates funding rates from 11 exchanges (Binance, Bybit, OKX, Deribit,
+    Hyperliquid, dYdX, Bitget, Kraken, Bitstamp, Coinbase, Crypto.com).
+    Returns composite rate, predicted next settlement, per-exchange breakdown,
+    regime, and cross-exchange divergence. $0.05 per query.
+
+    Args:
+        currency: One of BTC, ETH, SOL.
+    """
+    key = f"FUNDING_{currency.upper()}"
+    url = get_generic_endpoint(DERIVATIVES, key)
+    data = fetch_json(url)
+    return _format_json(data, f"Funding Rate — {currency.upper()}/USD")
+
+
+@tool
+def get_mycelia_oi(currency: str) -> str:
+    """
+    Get cross-exchange open interest data from Mycelia Signal.
+
+    Per-exchange OI breakdown with 1h/4h/24h deltas. $0.01 per query.
+
+    Args:
+        currency: One of BTC, ETH, SOL.
+    """
+    key = f"OI_{currency.upper()}"
+    url = get_generic_endpoint(DERIVATIVES, key)
+    data = fetch_json(url)
+    return _format_json(data, f"Open Interest — {currency.upper()}/USD")
+
+
+@tool
+def get_mycelia_basis(currency: str) -> str:
+    """
+    Get cross-exchange basis/carry data from Mycelia Signal.
+
+    Per-exchange basis (mark vs index), annualized carry, regime
+    (CONTANGO/BACKWARDATION/FLAT). Identifies best carry trade venues. $0.02 per query.
+
+    Args:
+        currency: One of BTC, ETH, SOL.
+    """
+    key = f"BASIS_{currency.upper()}"
+    url = get_generic_endpoint(DERIVATIVES, key)
+    data = fetch_json(url)
+    return _format_json(data, f"Basis/Carry — {currency.upper()}/USD")
+
+
+# ── WEATHER ORACLE ────────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_weather(lat: float, lon: float, metric: str, window: str) -> str:
+    """
+    Get weather data from Mycelia Signal oracle (ERA5 reanalysis, 0.25° global).
+
+    Used for parametric insurance triggers. $0.10 per query.
+
+    Args:
+        lat: Latitude (-90 to 90).
+        lon: Longitude (-180 to 180).
+        metric: One of 'wrsi' (crop water stress), 'rainfall', 'temperature', 'wind'.
+        window: Time window. WRSI: '30d','60d','90d'. Rainfall: '7d','14d','30d','60d','90d'.
+                Temperature: '7d','14d','30d','60d','90d'. Wind: '7d','14d','30d'.
+    """
+    path = f"/oracle/weather/{lat}/{lon}/{metric}/{window}"
+    if not is_paid_mode():
+        path += "/preview"
+    url = API_BASE_URL + path
+    data = fetch_json(url)
+    return _format_json(data, f"Weather — {metric} at ({lat}, {lon}) over {window}")
+
+
+# ── MARINE ORACLE ─────────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_marine_seastate(lat: float, lon: float) -> str:
+    """
+    Get sea state data at any ocean coordinate from Mycelia Signal.
+
+    Returns significant wave height, swell, wind waves. $0.10 per query.
+
+    Args:
+        lat: Latitude (-90 to 90).
+        lon: Longitude (-180 to 180).
+    """
+    path = f"/oracle/marine/{lat}/{lon}/seastate"
+    if not is_paid_mode():
+        path += "/preview"
+    url = API_BASE_URL + path
+    data = fetch_json(url)
+    return _format_json(data, f"Sea State at ({lat}, {lon})")
+
+
+# ── GAS ORACLE ────────────────────────────────────────────────────────────────
+
+@tool
+def get_mycelia_gas(chain: str) -> str:
+    """
+    Get real-time gas prices for EVM and non-EVM chains from Mycelia Signal.
+
+    Single chain: $0.01. Cross-chain index: $0.05.
+
+    Args:
+        chain: One of ETHEREUM, BASE, ARBITRUM, POLYGON, OPTIMISM, SOLANA, INDEX.
+               INDEX returns cross-chain comparison sorted cheapest-first.
+    """
+    key = chain.upper()
+    url = get_generic_endpoint(GAS_CHAINS, key)
+    data = fetch_json(url)
+    return _format_json(data, f"Gas — {chain.upper()}")
+
+
+# ── COT (COMMITMENTS OF TRADERS) ─────────────────────────────────────────────
+
+@tool
+def get_mycelia_cot() -> str:
+    """
+    Get CFTC Commitments of Traders data for Bitcoin CME futures.
+
+    Weekly data: leveraged funds, asset managers, dealers positioning.
+    Auto-refreshed Fridays at 19:40 UTC. $1.00 per query.
+    """
+    path = "/oracle/cot/btc"
+    if not is_paid_mode():
+        # COT has no preview — always returns 402 in free mode
+        return (
+            "COT data requires payment ($1.00 USDC). "
+            "Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic x402 payments. "
+            "See: https://myceliasignal.com/docs/cot"
+        )
+    url = API_BASE_URL + path
+    data = fetch_json(url)
+    return _format_json(data, "CFTC COT — BTC CME Futures")
+
+
+# ── DLC ORACLE ────────────────────────────────────────────────────────────────
 
 @tool
 def dlc_threshold_preview(pair: str, strike: float, direction: str, expiry: int | None = None) -> str:
     """
     Register a FREE DLC threshold contract preview with Mycelia Signal.
 
-    Tests the full DLC integration flow without requiring payment.
-    Returns a real attestation event ID and oracle R-points for verification.
-    Use this to verify your integration before registering a paid production contract.
+    Tests the full DLC flow without payment. Returns event ID and oracle R-points.
 
     Args:
-        pair:      Trading pair — e.g. 'BTCUSD', 'ETHUSD', 'XAUUSD'. Uppercase, no slash.
-                   Supported: BTCUSD, BTCEUR, BTCJPY, ETHUSD, ETHEUR, ETHJPY,
-                   SOLUSD, SOLEUR, SOLJPY, XAUUSD, XAUEUR, XAUJPY, XRPUSD, ADAUSD, DOGEUSD.
-        strike:    Price level to monitor (integer). e.g. 90000 for BTC above $90,000.
-        direction: 'above' or 'below' — direction of breach to attest.
-        expiry:    Optional Unix timestamp for contract expiry. Defaults to 30 days from now.
-
-    Returns:
-        Event ID, oracle pubkey, R-points, and expiry for the registered preview contract.
-
-    Example:
-        dlc_threshold_preview("BTCUSD", 90000, "above")
-        dlc_threshold_preview("ETHUSD", 3000, "below", 1780000000)
+        pair: Trading pair — e.g. 'BTCUSD', 'ETHUSD'. Uppercase, no slash.
+        strike: Price level to monitor (integer). e.g. 90000.
+        direction: 'above' or 'below'.
+        expiry: Optional Unix timestamp. Defaults to 30 days from now.
     """
     import time as _time
     body = {
@@ -104,22 +251,16 @@ def dlc_threshold_preview(pair: str, strike: float, direction: str, expiry: int 
         "expiry": expiry or int(_time.time()) + 86400 * 30,
     }
     result = post_dlc_with_payment("/dlc/oracle/threshold/preview", body)
-
     if result.get("error"):
-        return (
-            f"DLC preview failed: {result.get('message', result['error'])}\n"
-            f"Docs: {result.get('docs', 'https://myceliasignal.com/docs/dlc')}"
-        )
-
+        return f"DLC preview failed: {result.get('message', result['error'])}"
     lines = [
-        "DLC Threshold Preview Registered (free — no payment)",
-        f"Event ID:     {result.get('eventid', '')}",
-        f"Pair:         {result.get('pair', '')}",
-        f"Strike:       {result.get('strike', '')}",
-        f"Direction:    {result.get('direction', '')}",
-        f"Expiry:       {result.get('expiry', '')}",
+        "DLC Threshold Preview Registered (free)",
+        f"Event ID:      {result.get('eventid', '')}",
+        f"Pair:          {result.get('pair', '')}",
+        f"Strike:        {result.get('strike', '')}",
+        f"Direction:     {result.get('direction', '')}",
+        f"Expiry:        {result.get('expiry', '')}",
         f"Oracle pubkey: {str(result.get('oraclePubkey', ''))[:16]}...",
-        f"Docs: https://myceliasignal.com/docs/dlc",
     ]
     return "\n".join(lines)
 
@@ -127,29 +268,14 @@ def dlc_threshold_preview(pair: str, strike: float, direction: str, expiry: int 
 @tool
 def dlc_register_threshold(pair: str, strike: float, direction: str, expiry: int | None = None, webhook_url: str | None = None) -> str:
     """
-    Register a PRODUCTION DLC threshold contract with Mycelia Signal oracle.
-
-    Payment required: 10,000 sats (L402 Lightning) or $7.00 USDC (x402 on Base).
-    Set MYCELIA_WALLET_PRIVATE_KEY for automatic x402 payment.
-
-    The oracle monitors the specified price level and publishes a cryptographic
-    attestation when the price breaches the threshold or at contract expiry.
+    Register a PRODUCTION DLC threshold contract. $7.00 USDC or 10,000 sats.
 
     Args:
-        pair:        Trading pair — e.g. 'BTCUSD', 'ETHUSD'. Uppercase, no slash.
-                     Supported: BTCUSD, BTCEUR, BTCJPY, ETHUSD, ETHEUR, ETHJPY,
-                     SOLUSD, SOLEUR, SOLJPY, XAUUSD, XAUEUR, XAUJPY, XRPUSD, ADAUSD, DOGEUSD.
-        strike:      Price level to monitor (integer). e.g. 90000 for BTC above $90,000.
-        direction:   'above' or 'below' — direction of breach to attest.
-        expiry:      Optional Unix timestamp for contract expiry. Defaults to 30 days from now.
-        webhook_url: Optional URL to receive attestation payload via POST on breach or expiry.
-
-    Returns:
-        Event ID, oracle pubkey, R-points, and expiry for the registered contract.
-
-    Example:
-        dlc_register_threshold("BTCUSD", 90000, "above")
-        dlc_register_threshold("ETHUSD", 3000, "below", webhook_url="https://your-server.com/dlc")
+        pair: Trading pair — e.g. 'BTCUSD'. Uppercase, no slash.
+        strike: Price level to monitor (integer).
+        direction: 'above' or 'below'.
+        expiry: Optional Unix timestamp. Defaults to 30 days.
+        webhook_url: Optional URL to receive attestation POST on breach/expiry.
     """
     import time as _time
     body = {
@@ -160,71 +286,89 @@ def dlc_register_threshold(pair: str, strike: float, direction: str, expiry: int
     }
     if webhook_url:
         body["webhookUrl"] = webhook_url
-
     result = post_dlc_with_payment("/dlc/oracle/threshold", body)
-
-    if result.get("error") == "payment_required":
-        return (
-            f"Payment required to register DLC contract.\n"
-            f"Cost: 10,000 sats (L402) or $7.00 USDC (x402)\n"
-            f"Set MYCELIA_WALLET_PRIVATE_KEY for automatic payment.\n"
-            f"Docs: {result.get('docs', 'https://myceliasignal.com/docs/dlc')}"
-        )
-
     if result.get("error"):
-        return (
-            f"DLC registration failed: {result.get('message', result['error'])}\n"
-            f"Docs: {result.get('docs', 'https://myceliasignal.com/docs/dlc')}"
-        )
-
+        return f"DLC registration failed: {result.get('message', result['error'])}"
     lines = [
         "DLC Threshold Contract Registered",
-        f"Event ID:     {result.get('eventid', '')}",
-        f"Pair:         {result.get('pair', '')}",
-        f"Strike:       {result.get('strike', '')}",
-        f"Direction:    {result.get('direction', '')}",
-        f"Expiry:       {result.get('expiry', '')}",
-        f"Oracle pubkey: {str(result.get('oraclePubkey', ''))[:16]}...",
-        f"Payment rail: {result.get('rail', '')}",
-        f"Docs: https://myceliasignal.com/docs/dlc",
+        f"Event ID:      {result.get('eventid', '')}",
+        f"Pair:          {result.get('pair', '')}",
+        f"Strike:        {result.get('strike', '')}",
+        f"Direction:     {result.get('direction', '')}",
+        f"Payment rail:  {result.get('rail', '')}",
     ]
-    if result.get("webhookUrl"):
-        lines.append(f"Webhook:      {result['webhookUrl']}")
     return "\n".join(lines)
+
+
+@tool
+def dlc_register_enum(outcomes: list[str], event_id: str, maturity: int, resolver_kind: str | None = None, resolver_url: str | None = None) -> str:
+    """
+    Register a DLC disjoint union (enum) contract. $7.00 USDC or 10,000 sats.
+
+    Spec-compliant TLV format. Oracle attests to one of N discrete outcomes at maturity.
+
+    Args:
+        outcomes: List of possible outcomes, e.g. ['below_70k', '70k_75k', '75k_80k', 'above_80k'].
+        event_id: Unique event identifier string.
+        maturity: Unix timestamp when the oracle will attest.
+        resolver_kind: Optional auto-resolution. 'price_buckets' or 'webhook'.
+        resolver_url: URL for resolver (price source or webhook endpoint).
+    """
+    body = {"outcomes": outcomes, "eventid": event_id, "maturityTs": maturity}
+    if resolver_kind and resolver_url:
+        body["resolverConfig"] = {"kind": resolver_kind, "url": resolver_url}
+    result = post_dlc_with_payment("/dlc/oracle/enum", body)
+    if result.get("error"):
+        return f"DLC enum registration failed: {result.get('message', result['error'])}"
+    return _format_json(result, "DLC Enum Contract Registered")
+
+
+@tool
+def dlc_register_numeric(event_id: str, maturity: int, base: int = 10, nb_digits: int = 7, unit: str = "USD", resolver_kind: str | None = None, resolver_url: str | None = None, scale_factor: int = 1) -> str:
+    """
+    Register a DLC digit decomposition (numeric) contract. $7.00 USDC or 10,000 sats.
+
+    Spec-compliant TLV format. Oracle decomposes a numeric value into digits at maturity.
+
+    Args:
+        event_id: Unique event identifier string.
+        maturity: Unix timestamp when the oracle will attest.
+        base: Number base (default 10).
+        nb_digits: Number of digits (default 7, supports up to $9,999,999).
+        unit: Unit label (default 'USD').
+        resolver_kind: Optional. 'price_source' or 'webhook'.
+        resolver_url: URL for resolver.
+        scale_factor: Multiplier for sub-unit precision (100 for cents).
+    """
+    body = {
+        "eventid": event_id, "maturityTs": maturity,
+        "base": base, "nbDigits": nb_digits, "unit": unit,
+    }
+    if resolver_kind and resolver_url:
+        body["resolverConfig"] = {"kind": resolver_kind, "url": resolver_url, "scaleFactor": scale_factor}
+    result = post_dlc_with_payment("/dlc/oracle/numeric", body)
+    if result.get("error"):
+        return f"DLC numeric registration failed: {result.get('message', result['error'])}"
+    return _format_json(result, "DLC Numeric Contract Registered")
 
 
 @tool
 def dlc_get_attestation(event_id: str) -> str:
     """
-    Retrieve the cryptographic attestation for a settled DLC contract. FREE endpoint.
+    Retrieve the cryptographic attestation for a settled DLC contract. FREE.
 
-    The oracle publishes an attestation when the price breaches the registered
-    threshold or when the contract reaches its expiry. Use this to verify settlement
-    and unlock DLC contract execution transactions (CETs).
-
-    Returns HTTP 425 (not yet attested) if the contract has not yet settled.
+    Returns HTTP 425 if the contract has not yet settled.
 
     Args:
         event_id: The DLC event ID returned when the contract was registered.
-                  e.g. 'BTCUSD-2026-04-07T00:00:00Z' or a UUID-style ID.
-
-    Returns:
-        Attestation outcome, timestamp, and cryptographic signature.
-
-    Example:
-        dlc_get_attestation("BTCUSD-2026-04-07T00:00:00Z")
     """
     result = fetch_dlc_free(f"/dlc/oracle/attestations/{event_id}")
-
     if not result:
         return f"No attestation found for event ID: {event_id}"
-
     if result.get("error") == "not_yet_attested":
-        return f"Contract {event_id} has not been attested yet. Check back after the expiry time."
-
+        return f"Contract {event_id} has not been attested yet."
     if result.get("error"):
-        return f"Error fetching attestation: {result.get('message', result['error'])}"
-
+        return f"Error: {result.get('message', result['error'])}"
     lines = [
         "DLC Attestation",
         f"Event ID:    {result.get('eventid', event_id)}",
@@ -233,39 +377,22 @@ def dlc_get_attestation(event_id: str) -> str:
     ]
     if result.get("signature"):
         lines.append(f"Signature:   {str(result['signature'])[:16]}...")
-    if result.get("oraclePubkey"):
-        lines.append(f"Oracle key:  {str(result['oraclePubkey'])[:16]}...")
-    lines.append("Verify: https://myceliasignal.com/docs/verification")
     return "\n".join(lines)
 
 
 @tool
 def dlc_list_announcements() -> str:
     """
-    List all active DLC announcements from Mycelia Signal oracle. FREE endpoint.
+    List all active DLC announcements from Mycelia Signal oracle. FREE.
 
-    Returns all active numeric and threshold contract announcements including
-    event IDs, pairs, strike prices, directions, and expiry times. Use this
-    to discover existing contracts and their event IDs for attestation retrieval.
-
-    Returns:
-        List of active DLC announcements with event IDs and contract details.
-
-    Example:
-        dlc_list_announcements()
+    Returns event IDs, pairs, strikes, directions, and expiry times.
     """
     result = fetch_dlc_free("/dlc/oracle/announcements")
-
-    if not result:
-        return "Unable to fetch DLC announcements. See https://myceliasignal.com/docs/dlc"
-
-    if result.get("error"):
-        return f"Error: {result.get('message', result['error'])}"
-
+    if not result or result.get("error"):
+        return f"Error: {result.get('message', 'Unable to fetch') if result else 'No response'}"
     announcements = result.get("announcements", [])
     if not announcements:
-        return "No active DLC announcements found. See https://myceliasignal.com/docs/dlc"
-
+        return "No active DLC announcements found."
     lines = [f"Active DLC Announcements ({len(announcements)} total)"]
     for a in announcements[:15]:
         parts = [f"— {a.get('eventid', '')}"]
@@ -278,5 +405,4 @@ def dlc_list_announcements() -> str:
         lines.append(" ".join(parts))
     if len(announcements) > 15:
         lines.append(f"...and {len(announcements) - 15} more")
-    lines.append("Docs: https://myceliasignal.com/docs/dlc")
     return "\n".join(lines)

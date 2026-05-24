@@ -1,190 +1,196 @@
 """
 Configuration for langchain-mycelia-signal.
-Free mode:   No env var needed. Hits preview endpoints. Returns unsigned price data.
+Free mode:   No env var needed. Hits preview endpoints. Returns unsigned data.
 Paid mode:   Set MYCELIA_WALLET_PRIVATE_KEY to a funded Base wallet private key.
              Tool pays automatically via x402 (USDC on Base).
-             Price pairs: $0.01 per query. Econ/commodities: $0.10 per query.
              Returns fully cryptographically signed attestation.
 """
 import os
 
-# Base URL for the Mycelia Signal API
 API_BASE_URL = "https://api.myceliasignal.com"
 
-# All supported pairs and their endpoint paths — new namespace (Mar 15 2026)
+# ── Price / FX / Macro / Commodity pairs ──────────────────────────────────────
+
 SUPPORTED_PAIRS = {
-    # ── Crypto spot ───────────────────────────────────────────────────────────
-    "BTCUSD":           "/oracle/price/btc/usd",
-    "BTCEUR":           "/oracle/price/btc/eur",
-    "BTCJPY":           "/oracle/price/btc/jpy",
-    "ETHUSD":           "/oracle/price/eth/usd",
-    "ETHEUR":           "/oracle/price/eth/eur",
-    "ETHJPY":           "/oracle/price/eth/jpy",
-    "SOLUSD":           "/oracle/price/sol/usd",
-    "SOLEUR":           "/oracle/price/sol/eur",
-    "SOLJPY":           "/oracle/price/sol/jpy",
-    "XRPUSD":           "/oracle/price/xrp/usd",
-    "ADAUSD":           "/oracle/price/ada/usd",
-    "DOGEUSD":          "/oracle/price/doge/usd",
-    # ── Crypto VWAP ───────────────────────────────────────────────────────────
-    "BTCUSD_VWAP":      "/oracle/price/btc/usd/vwap",
-    "BTCEUR_VWAP":      "/oracle/price/btc/eur/vwap",
-    # ── Precious metals ───────────────────────────────────────────────────────
-    "XAUUSD":           "/oracle/price/xau/usd",
-    "XAUEUR":           "/oracle/price/xau/eur",
-    "XAUJPY":           "/oracle/price/xau/jpy",
-    # ── FX pairs ──────────────────────────────────────────────────────────────
-    "EURUSD":           "/oracle/price/eur/usd",
-    "EURJPY":           "/oracle/price/eur/jpy",
-    "EURGBP":           "/oracle/price/eur/gbp",
-    "EURCHF":           "/oracle/price/eur/chf",
-    "EURCNY":           "/oracle/price/eur/cny",
-    "EURCAD":           "/oracle/price/eur/cad",
-    "GBPUSD":           "/oracle/price/gbp/usd",
-    "GBPJPY":           "/oracle/price/gbp/jpy",
-    "GBPCHF":           "/oracle/price/gbp/chf",
-    "GBPCNY":           "/oracle/price/gbp/cny",
-    "GBPCAD":           "/oracle/price/gbp/cad",
-    "USDJPY":           "/oracle/price/usd/jpy",
-    "USDCHF":           "/oracle/price/usd/chf",
-    "USDCNY":           "/oracle/price/usd/cny",
-    "USDCAD":           "/oracle/price/usd/cad",
-    "CHFJPY":           "/oracle/price/chf/jpy",
-    "CHFCAD":           "/oracle/price/chf/cad",
-    "CNYJPY":           "/oracle/price/cny/jpy",
-    "CNYCAD":           "/oracle/price/cny/cad",
-    "CADJPY":           "/oracle/price/cad/jpy",
-    # ── US Economic indicators ────────────────────────────────────────────────
-    "US_CPI":           "/oracle/econ/us/cpi",
-    "US_CPI_CORE":      "/oracle/econ/us/cpi_core",
-    "US_UNRATE":        "/oracle/econ/us/unrate",
-    "US_NFP":           "/oracle/econ/us/nfp",
-    "US_FEDFUNDS":      "/oracle/econ/us/fedfunds",
-    "US_GDP":           "/oracle/econ/us/gdp",
-    "US_PCE":           "/oracle/econ/us/pce",
-    "US_YIELD_CURVE":   "/oracle/econ/us/yield_curve",
-    # ── EU Economic indicators ────────────────────────────────────────────────
-    "EU_HICP":          "/oracle/econ/eu/hicp",
-    "EU_HICP_CORE":     "/oracle/econ/eu/hicp_core",
+    # Crypto spot
+    "BTCUSD": "/oracle/price/btc/usd",
+    "BTCEUR": "/oracle/price/btc/eur",
+    "BTCJPY": "/oracle/price/btc/jpy",
+    "ETHUSD": "/oracle/price/eth/usd",
+    "ETHEUR": "/oracle/price/eth/eur",
+    "ETHJPY": "/oracle/price/eth/jpy",
+    "SOLUSD": "/oracle/price/sol/usd",
+    "SOLEUR": "/oracle/price/sol/eur",
+    "SOLJPY": "/oracle/price/sol/jpy",
+    "XRPUSD": "/oracle/price/xrp/usd",
+    "ADAUSD": "/oracle/price/ada/usd",
+    "DOGEUSD": "/oracle/price/doge/usd",
+    # Stablecoins
+    "USDTUSD": "/oracle/price/usdt/usd",
+    "USDCUSD": "/oracle/price/usdc/usd",
+    # Crypto VWAP
+    "BTCUSD_VWAP": "/oracle/price/btc/usd/vwap",
+    "BTCEUR_VWAP": "/oracle/price/btc/eur/vwap",
+    # Precious metals
+    "XAUUSD": "/oracle/price/xau/usd",
+    "XAUEUR": "/oracle/price/xau/eur",
+    "XAUJPY": "/oracle/price/xau/jpy",
+    # FX pairs
+    "EURUSD": "/oracle/price/eur/usd",
+    "EURJPY": "/oracle/price/eur/jpy",
+    "EURGBP": "/oracle/price/eur/gbp",
+    "EURCHF": "/oracle/price/eur/chf",
+    "EURCNY": "/oracle/price/eur/cny",
+    "EURCAD": "/oracle/price/eur/cad",
+    "GBPUSD": "/oracle/price/gbp/usd",
+    "GBPJPY": "/oracle/price/gbp/jpy",
+    "GBPCHF": "/oracle/price/gbp/chf",
+    "GBPCNY": "/oracle/price/gbp/cny",
+    "GBPCAD": "/oracle/price/gbp/cad",
+    "USDJPY": "/oracle/price/usd/jpy",
+    "USDCHF": "/oracle/price/usd/chf",
+    "USDCNY": "/oracle/price/usd/cny",
+    "USDCAD": "/oracle/price/usd/cad",
+    "CHFJPY": "/oracle/price/chf/jpy",
+    "CHFCAD": "/oracle/price/chf/cad",
+    "CNYJPY": "/oracle/price/cny/jpy",
+    "CNYCAD": "/oracle/price/cny/cad",
+    "CADJPY": "/oracle/price/cad/jpy",
+    # US Economic indicators ($0.10 each)
+    "US_CPI": "/oracle/econ/us/cpi",
+    "US_CPI_CORE": "/oracle/econ/us/cpi_core",
+    "US_UNRATE": "/oracle/econ/us/unrate",
+    "US_NFP": "/oracle/econ/us/nfp",
+    "US_FEDFUNDS": "/oracle/econ/us/fedfunds",
+    "US_GDP": "/oracle/econ/us/gdp",
+    "US_PCE": "/oracle/econ/us/pce",
+    "US_YIELD_CURVE": "/oracle/econ/us/yield_curve",
+    # EU Economic indicators ($0.10 each)
+    "EU_HICP": "/oracle/econ/eu/hicp",
+    "EU_HICP_CORE": "/oracle/econ/eu/hicp_core",
     "EU_HICP_SERVICES": "/oracle/econ/eu/hicp_services",
-    "EU_UNRATE":        "/oracle/econ/eu/unrate",
-    "EU_GDP":           "/oracle/econ/eu/gdp",
-    "EU_EMPLOYMENT":    "/oracle/econ/eu/employment",
-    # ── Commodities ───────────────────────────────────────────────────────────
-    "WTI":              "/oracle/econ/commodities/wti",
-    "BRENT":            "/oracle/econ/commodities/brent",
-    "NATGAS":           "/oracle/econ/commodities/natgas",
-    "COPPER":           "/oracle/econ/commodities/copper",
-    "DXY":              "/oracle/econ/commodities/dxy",
+    "EU_UNRATE": "/oracle/econ/eu/unrate",
+    "EU_GDP": "/oracle/econ/eu/gdp",
+    "EU_EMPLOYMENT": "/oracle/econ/eu/employment",
+    # Commodities ($0.10 each)
+    "WTI": "/oracle/econ/commodities/wti",
+    "BRENT": "/oracle/econ/commodities/brent",
+    "NATGAS": "/oracle/econ/commodities/natgas",
+    "COPPER": "/oracle/econ/commodities/copper",
+    "DXY": "/oracle/econ/commodities/dxy",
 }
 
-# Pricing tiers — econ/commodities are $0.10, everything else is $0.01
+# ── Indices ───────────────────────────────────────────────────────────────────
+
+INDICES = {
+    "MSVI_BTC": "/oracle/volatility/btc/usd",
+    "MSVI_ETH": "/oracle/volatility/eth/usd",
+    "MSXI_BTC": "/oracle/sentiment/btc/usd",
+    "MSXI_ETH": "/oracle/sentiment/eth/usd",
+    "MSSI": "/oracle/stress/market",
+    "MSTI": "/oracle/contagion/market",
+}
+
+# ── Derivatives data ──────────────────────────────────────────────────────────
+
+DERIVATIVES = {
+    # Funding rates ($0.05)
+    "FUNDING_BTC": "/oracle/funding/btc/usd",
+    "FUNDING_ETH": "/oracle/funding/eth/usd",
+    "FUNDING_SOL": "/oracle/funding/sol/usd",
+    # Open interest ($0.01)
+    "OI_BTC": "/oracle/oi/btc/usd",
+    "OI_ETH": "/oracle/oi/eth/usd",
+    "OI_SOL": "/oracle/oi/sol/usd",
+    # Basis/carry ($0.02)
+    "BASIS_BTC": "/oracle/basis/btc/usd",
+    "BASIS_ETH": "/oracle/basis/eth/usd",
+    "BASIS_SOL": "/oracle/basis/sol/usd",
+    # Liquidations (preview only currently)
+    "LIQUIDATIONS_BTC": "/oracle/liquidations/btc/usd",
+    "LIQUIDATIONS_ETH": "/oracle/liquidations/eth/usd",
+    "LIQUIDATIONS_SOL": "/oracle/liquidations/sol/usd",
+    # Orderbook (preview only currently)
+    "ORDERBOOK_BTC": "/oracle/orderbook/btc/usd",
+    "ORDERBOOK_ETH": "/oracle/orderbook/eth/usd",
+    # IV surface (preview only currently)
+    "IV_BTC": "/oracle/iv/btc/usd",
+    "IV_ETH": "/oracle/iv/eth/usd",
+}
+
+# ── Gas oracle ────────────────────────────────────────────────────────────────
+
+GAS_CHAINS = {
+    "ETHEREUM": "/oracle/gas/ethereum",
+    "BASE": "/oracle/gas/base",
+    "ARBITRUM": "/oracle/gas/arbitrum",
+    "POLYGON": "/oracle/gas/polygon",
+    "OPTIMISM": "/oracle/gas/optimism",
+    "SOLANA": "/oracle/gas/solana",
+    "INDEX": "/oracle/gas/index",
+}
+
+# ── Pricing tiers ─────────────────────────────────────────────────────────────
+
 ECON_COMMODITIES_PAIRS = {
     "US_CPI", "US_CPI_CORE", "US_UNRATE", "US_NFP", "US_FEDFUNDS",
     "US_GDP", "US_PCE", "US_YIELD_CURVE",
     "EU_HICP", "EU_HICP_CORE", "EU_HICP_SERVICES", "EU_UNRATE", "EU_GDP", "EU_EMPLOYMENT",
     "WTI", "BRENT", "NATGAS", "COPPER", "DXY",
 }
-
 VWAP_PAIRS = {"BTCUSD_VWAP", "BTCEUR_VWAP"}
-
-# Human-readable descriptions for each pair
-PAIR_DESCRIPTIONS = {
-    # Crypto spot
-    "BTCUSD":           "Bitcoin / US Dollar spot price (median of 9 sources)",
-    "BTCEUR":           "Bitcoin / Euro spot price (cross-rate + direct feeds)",
-    "BTCJPY":           "Bitcoin / Japanese Yen spot price",
-    "ETHUSD":           "Ethereum / US Dollar spot price (median of 5 sources)",
-    "ETHEUR":           "Ethereum / Euro spot price (hybrid: direct EUR + cross-rate)",
-    "ETHJPY":           "Ethereum / Japanese Yen spot price",
-    "SOLUSD":           "Solana / US Dollar spot price (median of 9 sources)",
-    "SOLEUR":           "Solana / Euro spot price (hybrid: direct EUR + cross-rate)",
-    "SOLJPY":           "Solana / Japanese Yen spot price",
-    "XRPUSD":           "XRP / US Dollar spot price",
-    "ADAUSD":           "Cardano / US Dollar spot price",
-    "DOGEUSD":          "Dogecoin / US Dollar spot price",
-    # Crypto VWAP
-    "BTCUSD_VWAP":      "Bitcoin / US Dollar 5-minute volume-weighted average price",
-    "BTCEUR_VWAP":      "Bitcoin / Euro 5-minute volume-weighted average price",
-    # Precious metals
-    "XAUUSD":           "Gold (XAU) / US Dollar spot price (median of 8 sources)",
-    "XAUEUR":           "Gold (XAU) / Euro spot price (cross-rate: XAUUSD / EURUSD)",
-    "XAUJPY":           "Gold (XAU) / Japanese Yen spot price",
-    # FX
-    "EURUSD":           "Euro / US Dollar (median of 8 sources incl. central banks)",
-    "EURJPY":           "Euro / Japanese Yen",
-    "EURGBP":           "Euro / British Pound",
-    "EURCHF":           "Euro / Swiss Franc",
-    "EURCNY":           "Euro / Chinese Yuan",
-    "EURCAD":           "Euro / Canadian Dollar",
-    "GBPUSD":           "British Pound / US Dollar",
-    "GBPJPY":           "British Pound / Japanese Yen",
-    "GBPCHF":           "British Pound / Swiss Franc",
-    "GBPCNY":           "British Pound / Chinese Yuan",
-    "GBPCAD":           "British Pound / Canadian Dollar",
-    "USDJPY":           "US Dollar / Japanese Yen",
-    "USDCHF":           "US Dollar / Swiss Franc",
-    "USDCNY":           "US Dollar / Chinese Yuan",
-    "USDCAD":           "US Dollar / Canadian Dollar",
-    "CHFJPY":           "Swiss Franc / Japanese Yen",
-    "CHFCAD":           "Swiss Franc / Canadian Dollar",
-    "CNYJPY":           "Chinese Yuan / Japanese Yen",
-    "CNYCAD":           "Chinese Yuan / Canadian Dollar",
-    "CADJPY":           "Canadian Dollar / Japanese Yen",
-    # US Economic
-    "US_CPI":           "US Consumer Price Index (BLS)",
-    "US_CPI_CORE":      "US CPI Core (ex food & energy)",
-    "US_UNRATE":        "US Unemployment Rate (BLS)",
-    "US_NFP":           "US Nonfarm Payrolls (BLS)",
-    "US_FEDFUNDS":      "US Federal Funds Rate (FRED)",
-    "US_GDP":           "US GDP (FRED/BEA)",
-    "US_PCE":           "US PCE Price Index (FRED)",
-    "US_YIELD_CURVE":   "US Yield Curve — 10Y minus 2Y spread (FRED)",
-    # EU Economic
-    "EU_HICP":          "EU HICP Inflation (Eurostat)",
-    "EU_HICP_CORE":     "EU HICP Core Inflation",
-    "EU_HICP_SERVICES": "EU HICP Services Inflation",
-    "EU_UNRATE":        "EU Unemployment Rate (Eurostat)",
-    "EU_GDP":           "EU GDP (Eurostat)",
-    "EU_EMPLOYMENT":    "EU Employment (Eurostat)",
-    # Commodities
-    "WTI":              "WTI Crude Oil price (EIA/FRED)",
-    "BRENT":            "Brent Crude Oil price",
-    "NATGAS":           "Henry Hub Natural Gas price (EIA/FRED)",
-    "COPPER":           "Copper price (FRED)",
-    "DXY":              "US Dollar Index (DXY)",
-}
+INDEX_KEYS = set(INDICES.keys())
+FUNDING_KEYS = {"FUNDING_BTC", "FUNDING_ETH", "FUNDING_SOL"}
+OI_KEYS = {"OI_BTC", "OI_ETH", "OI_SOL"}
+BASIS_KEYS = {"BASIS_BTC", "BASIS_ETH", "BASIS_SOL"}
 
 
 def get_wallet_key() -> str | None:
-    """Return the wallet private key from environment, or None if not set."""
     return os.environ.get("MYCELIA_WALLET_PRIVATE_KEY")
 
 
 def is_paid_mode() -> bool:
-    """Return True if a wallet key is configured (paid mode), False otherwise."""
     return get_wallet_key() is not None
 
 
-def get_price_usd(pair: str) -> str:
-    """Return the USD cost string for a given pair."""
-    pair = pair.upper().replace("/", "").replace("-", "_")
-    if pair in ECON_COMMODITIES_PAIRS:
+def get_price_usd(key: str) -> str:
+    key = key.upper().replace("/", "").replace("-", "_")
+    if key in ECON_COMMODITIES_PAIRS:
         return "$0.10"
-    if pair in VWAP_PAIRS:
+    if key in VWAP_PAIRS:
         return "$0.02"
+    if key in INDEX_KEYS or key in FUNDING_KEYS:
+        return "$0.05"
+    if key in BASIS_KEYS:
+        return "$0.02"
+    if key in OI_KEYS:
+        return "$0.01"
+    if key == "COT_BTC":
+        return "$1.00"
     return "$0.01"
 
 
 def get_endpoint(pair: str) -> str:
-    """Return the full API URL for a given pair."""
     pair = pair.upper().replace("/", "").replace("-", "_")
     if pair not in SUPPORTED_PAIRS:
         raise ValueError(
             f"Unsupported pair: '{pair}'. "
-            f"Supported pairs: {', '.join(SUPPORTED_PAIRS.keys())}"
+            f"Supported: {', '.join(sorted(SUPPORTED_PAIRS.keys()))}"
         )
     path = SUPPORTED_PAIRS[pair]
+    if not is_paid_mode():
+        path = path + "/preview"
+    return API_BASE_URL + path
+
+
+def get_generic_endpoint(endpoint_map: dict, key: str) -> str:
+    key = key.upper().replace("/", "").replace("-", "_")
+    if key not in endpoint_map:
+        raise ValueError(
+            f"Unsupported key: '{key}'. "
+            f"Supported: {', '.join(sorted(endpoint_map.keys()))}"
+        )
+    path = endpoint_map[key]
     if not is_paid_mode():
         path = path + "/preview"
     return API_BASE_URL + path
