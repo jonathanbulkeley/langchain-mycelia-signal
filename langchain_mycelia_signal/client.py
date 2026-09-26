@@ -1,337 +1,182 @@
-"""
-HTTP client for Mycelia Signal API.
+"""HTTP client for Mycelia Signal, with x402 payment handled by the x402 library.
 
-Handles:
-- Free endpoint requests (preview, no payment)
-- x402 v2 payment flow (automatic USDC on Base payment)
-- DLC oracle endpoints (free and paid)
-- Generic JSON endpoint fetching (indices, derivatives, weather, marine, gas, COT)
-"""
+WHY THE LIBRARY AND NOT OUR OWN SIGNING. Until 3.0.0 this file built a payment by
+hand: it signed a flat JSON blob with personal_sign (encode_defunct) and sent it as a
+raw-JSON PAYMENT-SIGNATURE header. The proxy base64-decodes that header and reads
+payload.authorization.from -- the EIP-3009 transferWithAuthorization shape. The two
+never matched, so paid mode could not settle, and because logRevenue only fires on a
+200 the failures left no row anywhere. It was invisible until an audit on 2026-09-26.
 
-import json
-import time
+x402 2.9.0 already implements the exact-EVM scheme the facilitator verifies:
+build_typed_data_for_signing, ExactEIP3009Authorization, nonce and validity window,
+chain id lookup. Reimplementing that is how the bug happened. So: delegate.
+
+x402HTTPClientSync.handle_402_response(headers, body) parses the challenge, signs the
+payment and returns the headers to retry with. One call, the correct structure.
+"""
+from __future__ import annotations
+
+import os
 from typing import Any
 
 import httpx
 
-from .config import API_BASE_URL, get_endpoint, get_price_usd, get_wallet_key, is_paid_mode
+from .config import (API_BASE_URL, describe, get_wallet_key, is_paid_mode,
+                     price_for, route_key)
 
 REQUEST_TIMEOUT = 30
+_PAID_CLIENT: Any = None
 
 
-def _parse_canonical(canonical: str) -> dict:
-    """Parse canonical string per Oracle Attestation Spec v0.4."""
-    parts = canonical.split("|")
-    if len(parts) < 4:
-        return {"raw": canonical}
+def _paid_client():
+    """An x402 HTTP client bound to MYCELIA_WALLET_PRIVATE_KEY, or None.
 
-    result = {"version": parts[0], "type": parts[1]}
+    Built once and cached. If construction fails -- missing extra, bad key -- we
+    remember that and stop retrying, so a misconfigured wallet does not pay an import
+    cost on every call.
+    """
+    global _PAID_CLIENT
+    if _PAID_CLIENT is not None:
+        return _PAID_CLIENT
+    key = get_wallet_key()
+    if not key:
+        return None
+    try:
+        from eth_account import Account
+        from x402.client import x402ClientSync
+        from x402.http.x402_http_client import x402HTTPClientSync
+        from x402.mechanisms.evm.exact.register import register_exact_evm_client
 
-    if parts[1] == "PRICE":
-        result.update({
-            "pair":      parts[2] if len(parts) > 2 else "",
-            "price":     parts[3] if len(parts) > 3 else "",
-            "currency":  parts[4] if len(parts) > 4 else "",
-            "decimals":  parts[5] if len(parts) > 5 else "",
-            "timestamp": parts[6] if len(parts) > 6 else "",
-            "nonce":     parts[7] if len(parts) > 7 else "",
-            "sources":   parts[8].split(",") if len(parts) > 8 else [],
-            "method":    parts[9] if len(parts) > 9 else "",
-        })
-    else:
-        result.update({
-            "indicator": parts[2] if len(parts) > 2 else "",
-            "value":     parts[3] if len(parts) > 3 else "",
-            "unit":      parts[4] if len(parts) > 4 else "",
-        })
-
-    return result
+        account = Account.from_key(key)          # auto-wrapped by the scheme
+        core = x402ClientSync()
+        register_exact_evm_client(core, account)
+        _PAID_CLIENT = x402HTTPClientSync(core)
+        return _PAID_CLIENT
+    except ImportError as e:
+        raise ImportError(
+            "Paid mode needs the x402 and eth-account packages. Install with:\n"
+            "    pip install 'langchain-mycelia-signal[paid]'"
+        ) from e
+    except Exception:
+        # NOT cached as a permanent failure: a key fixed mid-process should work on
+        # the next call rather than leaving the agent silently in free mode forever.
+        raise
 
 
-def _parse_response(data: dict) -> dict:
-    """Parse oracle response into a structured dict."""
-    canonical = data.get("canonical") or data.get("canonicalstring", "")
-    if canonical:
-        parsed = _parse_canonical(canonical)
-        return {
-            "pair":      parsed.get("pair") or data.get("pair", ""),
-            "price":     parsed.get("price") or data.get("price", ""),
-            "currency":  parsed.get("currency") or data.get("currency", ""),
-            "timestamp": parsed.get("timestamp") or data.get("timestamp", ""),
-            "sources":   parsed.get("sources") or data.get("sources", []),
-            "method":    parsed.get("method") or data.get("method", ""),
-            "signed":    True,
-            "signature": data.get("signature", ""),
-            "pubkey":    data.get("pubkey", ""),
-            "canonical": canonical,
-        }
-
+def _payment_notice(path: str, key: str | None = None) -> dict:
+    cost = price_for(path) or "a fee"
     return {
-        "pair":      data.get("pair", ""),
-        "price":     data.get("price", ""),
-        "currency":  data.get("currency", ""),
-        "timestamp": data.get("timestamp", ""),
-        "sources":   data.get("sources", []),
-        "method":    data.get("method", ""),
-        "signed":    False,
+        "error": "payment_required",
+        "path": path,
+        "price": cost,
+        "message": (
+            f"{path} costs {cost} per call (USDC on Base). Set "
+            f"MYCELIA_WALLET_PRIVATE_KEY to pay automatically via x402, or call the "
+            f"MCP server at https://api.myceliasignal.com/mcp and let your agent's "
+            f"own wallet settle it."
+        ),
+        "docs": "https://myceliasignal.com/docs/x402",
     }
 
 
-def _format_result(parsed: dict) -> str:
-    """Format the parsed result as a clean string for LangChain."""
-    sources = parsed.get("sources", [])
-    sources_str = ",".join(sources) if isinstance(sources, list) else sources
-
-    lines = [
-        f"Pair:      {parsed['pair']}",
-        f"Price:     {parsed['price']} {parsed['currency']}",
-        f"Timestamp: {parsed['timestamp']}",
-        f"Sources:   {sources_str}",
-        f"Method:    {parsed['method']}",
-        f"Signed:    {parsed['signed']}",
-    ]
-    if parsed.get("signed"):
-        lines += [
-            f"Signature: {parsed['signature']}",
-            f"Pubkey:    {parsed['pubkey']}",
-            f"Canonical: {parsed['canonical']}",
-        ]
-    return "\n".join(lines)
-
-
-def _handle_x402_payment(response: httpx.Response, wallet_key: str) -> dict | None:
-    """
-    Handle x402 v2 payment flow.
-
-    Reads payment requirements from the PAYMENT-REQUIRED response header (v2 format),
-    constructs and signs an EIP-712 payment, returns headers for the retry request.
-    """
-    try:
-        from eth_account import Account
-        from eth_account.messages import encode_defunct
-
-        account = Account.from_key(wallet_key)
-
-        # v2: requirements in payment-required header (base64 JSON)
-        import base64
-        pr_header = response.headers.get("payment-required", "")
-        if pr_header:
-            try:
-                payment_required = json.loads(base64.b64decode(pr_header))
-            except Exception:
-                payment_required = response.json()
-        else:
-            payment_required = response.json()
-
-        # Extract from v2 format (accepts array) or v1 fallback
-        accepts = payment_required if isinstance(payment_required, list) else payment_required.get("accepts", [payment_required])
-        # Find the x402/exact scheme
-        req = None
-        for a in accepts:
-            if isinstance(a, dict) and a.get("scheme") in ("exact", None):
-                req = a
-                break
-        if not req:
-            req = accepts[0] if accepts else payment_required
-
-        amount = req.get("amount", req.get("maxAmountRequired", "10000"))
-        to = req.get("payTo", "")
-        asset = req.get("asset", "")
-        network = req.get("network", "eip155:8453")
-
-        payload = {
-            "scheme": "exact",
-            "network": network,
-            "asset": asset,
-            "amount": str(amount),
-            "payTo": to,
-            "from": account.address,
-            "nonce": str(int(time.time())),
-            "accepted": req,
-        }
-
-        message = encode_defunct(text=json.dumps(payload, separators=(",", ":")))
-        signed = account.sign_message(message)
-
-        return {
-            "PAYMENT-SIGNATURE": json.dumps({
-                **payload,
-                "signature": signed.signature.hex(),
-            })
-        }
-
-    except ImportError:
-        raise ImportError(
-            "Paid mode requires eth_account. "
-            "Install with: pip install langchain-mycelia-signal[paid]"
-        )
-    except Exception as e:
-        raise RuntimeError(f"x402 payment failed: {e}") from e
-
-
-def fetch_price(pair: str) -> str:
-    """Fetch a price attestation from Mycelia Signal."""
-    url = get_endpoint(pair)
-    cost = get_price_usd(pair)
-    wallet_key = get_wallet_key()
-    paid = is_paid_mode()
-
-    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        try:
-            response = client.get(url)
-
-            if response.status_code == 200:
-                data = response.json()
-                parsed = _parse_response(data)
-                return _format_result(parsed)
-
-            if response.status_code == 402:
-                if not paid:
-                    return (
-                        f"This endpoint requires payment ({cost} USDC per query on Base). "
-                        f"Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic x402 payments. "
-                        f"See: https://myceliasignal.com/docs/x402"
-                    )
-
-                payment_headers = _handle_x402_payment(response, wallet_key)
-                if payment_headers is None:
-                    return "Payment failed: could not construct x402 payment."
-
-                retry = client.get(url, headers=payment_headers)
-                if retry.status_code == 200:
-                    data = retry.json()
-                    parsed = _parse_response(data)
-                    return _format_result(parsed)
-                else:
-                    return f"Payment accepted but request failed: HTTP {retry.status_code}"
-
-            return f"API error: HTTP {response.status_code} — {response.text[:200]}"
-
-        except httpx.TimeoutException:
-            return f"Request timed out after {REQUEST_TIMEOUT}s."
-        except httpx.RequestError as e:
-            return f"Network error: {e}"
-        except Exception as e:
-            return f"Unexpected error fetching {pair}: {e}"
-
-
 def fetch_json(url: str) -> dict:
-    """
-    Generic JSON endpoint fetch with x402 payment support.
+    """GET a Mycelia endpoint, paying via x402 if the wallet key is set.
 
-    Used by indices, derivatives, weather, marine, gas, COT tools.
-    Returns the parsed JSON dict, or an error dict.
+    Returns the parsed JSON, or an error dict. Never a plausible-looking stub: a
+    caller must be able to tell a real answer from a failed one.
     """
-    wallet_key = get_wallet_key()
-    paid = is_paid_mode()
-
-    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+    path = url[len(API_BASE_URL):] if url.startswith(API_BASE_URL) else url
+    with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True) as http:
         try:
-            response = client.get(url)
+            r = http.get(url)
+            if r.status_code == 200:
+                return r.json()
 
-            if response.status_code == 200:
-                return response.json()
+            if r.status_code != 402:
+                return {"error": f"http_{r.status_code}", "path": path,
+                        "message": r.text[:200]}
 
-            if response.status_code == 402:
-                if not paid:
-                    return {
-                        "error": "payment_required",
-                        "message": (
-                            "Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic x402 payments. "
-                            "See: https://myceliasignal.com/docs/x402"
-                        ),
-                    }
+            # --- 402: pay and retry ---
+            key = route_key(path)
+            if not is_paid_mode():
+                return _payment_notice(path, key)
+            try:
+                client = _paid_client()
+            except ImportError:
+                raise
+            except Exception as e:
+                return {"error": "wallet_invalid", "path": path,
+                        "message": (f"MYCELIA_WALLET_PRIVATE_KEY could not be used: "
+                                    f"{str(e)[:150]}. Fix the key and call again -- "
+                                    f"paid mode is retried, not disabled.")}
+            if client is None:
+                return _payment_notice(path, key)
 
-                payment_headers = _handle_x402_payment(response, wallet_key)
-                if payment_headers is None:
-                    return {"error": "payment_failed", "message": "Could not construct x402 payment."}
+            pay_headers, _payload = client.handle_402_response(
+                dict(r.headers), r.content)
+            retry = http.get(url, headers=pay_headers)
+            if retry.status_code == 200:
+                return retry.json()
+            # A settlement that fails leaves no trace server-side unless it is
+            # reported here, so say what happened rather than "request failed".
+            return {"error": "settlement_failed", "path": path,
+                    "status": retry.status_code,
+                    "message": (f"Payment was constructed and sent but the request "
+                                f"returned {retry.status_code}. Common causes: "
+                                f"insufficient USDC on Base, an authorization nonce "
+                                f"already used, or a clock skew outside the validity "
+                                f"window. Detail: {retry.text[:160]}")}
 
-                retry = client.get(url, headers=payment_headers)
-                if retry.status_code == 200:
-                    return retry.json()
-                return {"error": f"http_{retry.status_code}", "message": retry.text[:200]}
-
-            return {"error": f"http_{response.status_code}", "message": response.text[:200]}
-
+        except ImportError:
+            raise
         except httpx.TimeoutException:
-            return {"error": "timeout", "message": f"Request timed out after {REQUEST_TIMEOUT}s."}
+            return {"error": "timeout", "path": path,
+                    "message": f"No response after {REQUEST_TIMEOUT}s."}
         except httpx.RequestError as e:
-            return {"error": "network_error", "message": str(e)}
+            return {"error": "network_error", "path": path, "message": str(e)[:200]}
         except Exception as e:
-            return {"error": "unexpected", "message": str(e)}
+            return {"error": "payment_error", "path": path,
+                    "message": f"x402 payment could not be completed: {str(e)[:200]}"}
+
+
+_ATTESTATION_KEYS = ("canonical", "signature", "pubkey", "signingScheme",
+                     "signing_scheme", "method_version", "methodVersion")
+_MAX_CHARS = 6000
 
 
 def _format_json(data: dict, title: str = "") -> str:
-    """Format a JSON response dict as a readable string for LangChain."""
+    """Render a response for a LangChain agent to read.
+
+    The attestation fields are emitted FIRST and never truncated. The previous
+    version flattened one level and cut lists at 10, which quietly dropped
+    canonical and signature from deep objects like synopsis -- and a signed oracle
+    whose signature never reaches the agent cannot be verified, which is the entire
+    reason to call it rather than an exchange ticker.
+    """
     if data.get("error"):
-        return f"Error: {data.get('message', data['error'])}"
+        parts = [f"Error ({data['error']}): {data.get('message', '')}"]
+        if data.get("docs"):
+            parts.append(f"Docs: {data['docs']}")
+        return "\n".join(parts)
 
-    lines = [title] if title else []
-    for k, v in data.items():
-        if isinstance(v, dict):
-            lines.append(f"{k}:")
-            for k2, v2 in v.items():
-                lines.append(f"  {k2}: {v2}")
-        elif isinstance(v, list):
-            lines.append(f"{k}: {', '.join(str(i) for i in v[:10])}")
-        else:
-            lines.append(f"{k}: {v}")
-    return "\n".join(lines)
+    import json as _json
+    head = [title] if title else []
+    for k in _ATTESTATION_KEYS:
+        if data.get(k):
+            head.append(f"{k}: {data[k]}")
+    if len(head) > (1 if title else 0):
+        head.append("(verify the canonical string against the published per-node key)")
 
-
-# ── DLC ORACLE ───────────────────────────────────────────────────────────────
-
-def fetch_dlc_free(endpoint: str) -> dict | None:
-    """Fetch a free DLC endpoint (no payment required)."""
-    url = API_BASE_URL + endpoint
-    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        try:
-            r = client.get(url)
-            if r.status_code == 200:
-                return r.json()
-            if r.status_code == 425:
-                return {"error": "not_yet_attested", "message": "Contract has not been attested yet."}
-            return {"error": f"http_{r.status_code}", "message": r.text[:200]}
-        except Exception as e:
-            return {"error": "request_error", "message": str(e)}
+    body = {k: v for k, v in data.items() if k not in _ATTESTATION_KEYS}
+    rendered = _json.dumps(body, indent=2, default=str, ensure_ascii=False)
+    if len(rendered) > _MAX_CHARS:
+        rendered = rendered[:_MAX_CHARS] + f"\n... (truncated at {_MAX_CHARS} chars; "
+        rendered += "the attestation fields above are complete)"
+    return "\n".join(head + [rendered])
 
 
-def post_dlc_with_payment(endpoint: str, body: dict) -> dict:
-    """POST to a paid DLC endpoint with automatic x402 v2 payment."""
-    url = API_BASE_URL + endpoint
-    wallet_key = get_wallet_key()
-    headers = {"Content-Type": "application/json"}
-
-    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        try:
-            r = client.post(url, json=body, headers=headers)
-
-            if r.status_code == 200:
-                return r.json()
-
-            if r.status_code == 402:
-                if wallet_key:
-                    try:
-                        payment_headers = _handle_x402_payment(r, wallet_key)
-                        if payment_headers:
-                            retry = client.post(url, json=body, headers={**headers, **payment_headers})
-                            if retry.status_code == 200:
-                                return retry.json()
-                    except Exception as pay_err:
-                        return {"error": "payment_failed", "message": str(pay_err)}
-
-                return {
-                    "error": "payment_required",
-                    "message": (
-                        "DLC contract registration requires payment (10,000 sats or $7.00 USDC). "
-                        "Set MYCELIA_WALLET_PRIVATE_KEY to enable automatic payment."
-                    ),
-                    "docs": "https://myceliasignal.com/docs/dlc",
-                }
-
-            return {"error": f"http_{r.status_code}", "message": r.text[:200]}
-
-        except httpx.TimeoutException:
-            return {"error": "timeout", "message": f"Request timed out after {REQUEST_TIMEOUT}s."}
-        except Exception as e:
-            return {"error": "request_error", "message": str(e)}
+def describe_route(path: str) -> str:
+    """The proxy's own description and price for a route, without calling it."""
+    key = route_key(path)
+    d = describe(key) if key else ""
+    return f"{path} ({price_for(path) or 'unknown'}): {d}" if d else f"{path}: unknown route"

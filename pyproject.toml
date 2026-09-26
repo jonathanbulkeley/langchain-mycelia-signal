@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-mycelia-signal"
-version = "2.8.0"
-description = "LangChain tools for Mycelia Signal — cryptographically signed oracle data (prices, indices, derivatives, weather, marine, gas, COT, DLC) with automatic x402 payment"
+version = "3.0.0"
+description = "LangChain tools for Mycelia Signal: 35 parameterised tools covering 213 of the API's 214 priced endpoints. Signed oracle data -- prices, FX, indices, derivatives, options surfaces, DeFi, compute, LLM inference, macro, prediction markets, regimes and intelligence. Automatic x402 payment. Also available as an MCP server."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -13,13 +13,14 @@ authors = [
     { name = "Jonathan Bulkeley", email = "info@myceliasignal.com" }
 ]
 keywords = [
-    "langchain", "oracle", "bitcoin", "price", "x402", "l402",
+    "langchain", "oracle", "bitcoin", "price", "x402", "l402", "mcp",
     "ai-agents", "crypto", "attestation", "signed-data", "forex", "macro",
     "volatility", "sentiment", "funding-rate", "derivatives", "weather",
-    "marine", "dlc", "defi"
+    "marine", "dlc", "defi", "oracle-intelligence", "perp-regime",
+    "macro-risk", "defi-opportunity", "layer-2", "layer-3"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -37,6 +38,11 @@ dependencies = [
 
 [project.optional-dependencies]
 paid = [
+    # x402 implements the exact-EVM scheme the facilitator verifies: EIP-3009
+    # transferWithAuthorization, typed-data signing, nonce and validity window.
+    # Before 3.0.0 this package signed payments itself and produced a structure the
+    # proxy could not parse, so paid mode never settled.
+    "x402>=2.9.0",
     "eth-account>=0.13.0",
 ]
 dev = [

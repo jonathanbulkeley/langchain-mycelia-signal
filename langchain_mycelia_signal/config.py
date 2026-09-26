@@ -1,382 +1,966 @@
+"""Route catalogue for langchain-mycelia-signal.
+
+GENERATED from x402-proxy-ts/src/routes.ts. Regenerate with
+scripts/gen_langchain_config.py after any route change; do not hand-edit.
+
+WHY GENERATED. An audit on 2026-09-26 found econ and commodity calls quoted at
+$0.10 when routes.ts charges $1.00 -- a 10x understatement of the price an agent is
+told BEFORE it pays -- plus a synopsis price that was wrong by 4x, a triple-duplicated
+tool in as_list(), and an endpoint count that had drifted. Every one was a hand-copied
+value. routes.ts is what the proxy charges; anything else that states a price is a
+claim about it, and claims rot.
+
+214 priced routes across 36 families.
 """
-Configuration for langchain-mycelia-signal.
-Free mode:   No env var needed. Hits preview endpoints. Returns unsigned data.
-Paid mode:   Set MYCELIA_WALLET_PRIVATE_KEY to a funded Base wallet private key.
-             Tool pays automatically via x402 (USDC on Base).
-             Returns fully cryptographically signed attestation.
-"""
-import os
 
 API_BASE_URL = "https://api.myceliasignal.com"
 
-# ── Price / FX / Macro / Commodity pairs ──────────────────────────────────────
-
-SUPPORTED_PAIRS = {
-    # Crypto spot
-    "BTCUSD": "/oracle/price/btc/usd",
-    "BTCEUR": "/oracle/price/btc/eur",
-    "BTCJPY": "/oracle/price/btc/jpy",
-    "ETHUSD": "/oracle/price/eth/usd",
-    "ETHEUR": "/oracle/price/eth/eur",
-    "ETHJPY": "/oracle/price/eth/jpy",
-    "SOLUSD": "/oracle/price/sol/usd",
-    "SOLEUR": "/oracle/price/sol/eur",
-    "SOLJPY": "/oracle/price/sol/jpy",
-    "XRPUSD": "/oracle/price/xrp/usd",
-    "ADAUSD": "/oracle/price/ada/usd",
-    "DOGEUSD": "/oracle/price/doge/usd",
-    # Stablecoins
-    "USDTUSD": "/oracle/price/usdt/usd",
-    "USDCUSD": "/oracle/price/usdc/usd",
-    "USDTEUR": "/oracle/price/usdt/eur",
-    "USDTJPY": "/oracle/price/usdt/jpy",
-    # Crypto VWAP
-    "BTCUSD_VWAP": "/oracle/price/btc/usd/vwap",
-    "BTCEUR_VWAP": "/oracle/price/btc/eur/vwap",
-    "ETHUSD_VWAP": "/oracle/price/eth/usd/vwap",
-    # Precious metals
-    "XAUUSD": "/oracle/price/xau/usd",
-    "XAUEUR": "/oracle/price/xau/eur",
-    "XAUJPY": "/oracle/price/xau/jpy",
-    # FX pairs
-    "EURUSD": "/oracle/price/eur/usd",
-    "EURJPY": "/oracle/price/eur/jpy",
-    "EURGBP": "/oracle/price/eur/gbp",
-    "EURCHF": "/oracle/price/eur/chf",
-    "EURCNY": "/oracle/price/eur/cny",
-    "EURCAD": "/oracle/price/eur/cad",
-    "GBPUSD": "/oracle/price/gbp/usd",
-    "GBPJPY": "/oracle/price/gbp/jpy",
-    "GBPCHF": "/oracle/price/gbp/chf",
-    "GBPCNY": "/oracle/price/gbp/cny",
-    "GBPCAD": "/oracle/price/gbp/cad",
-    "USDJPY": "/oracle/price/usd/jpy",
-    "USDCHF": "/oracle/price/usd/chf",
-    "USDCNY": "/oracle/price/usd/cny",
-    "USDCAD": "/oracle/price/usd/cad",
-    "CHFJPY": "/oracle/price/chf/jpy",
-    "CHFCAD": "/oracle/price/chf/cad",
-    "CNYJPY": "/oracle/price/cny/jpy",
-    "CNYCAD": "/oracle/price/cny/cad",
-    "CADJPY": "/oracle/price/cad/jpy",
-    # US Economic indicators ($0.10 each)
-    "US_CPI": "/oracle/econ/us/cpi",
-    "US_CPI_CORE": "/oracle/econ/us/cpi_core",
-    "US_UNRATE": "/oracle/econ/us/unrate",
-    "US_NFP": "/oracle/econ/us/nfp",
-    "US_FEDFUNDS": "/oracle/econ/us/fedfunds",
-    "US_GDP": "/oracle/econ/us/gdp",
-    "US_PCE": "/oracle/econ/us/pce",
-    "US_YIELD_CURVE": "/oracle/econ/us/yield_curve",
-    # EU Economic indicators ($0.10 each)
-    "EU_HICP": "/oracle/econ/eu/hicp",
-    "EU_HICP_CORE": "/oracle/econ/eu/hicp_core",
-    "EU_HICP_SERVICES": "/oracle/econ/eu/hicp_services",
-    "EU_UNRATE": "/oracle/econ/eu/unrate",
-    "EU_GDP": "/oracle/econ/eu/gdp",
-    "EU_EMPLOYMENT": "/oracle/econ/eu/employment",
-    # Commodities ($0.10 each)
-    "WTI": "/oracle/econ/commodities/wti",
-    "BRENT": "/oracle/econ/commodities/brent",
-    "NATGAS": "/oracle/econ/commodities/natgas",
-    "COPPER": "/oracle/econ/commodities/copper",
-    "DXY": "/oracle/econ/commodities/dxy",
+# path -> {"price": "0.01", "desc": "..."} exactly as routes.ts declares it.
+ROUTES: dict[str, dict[str, str]] = {
+    "/dlc/oracle/enum": {
+        "desc": "Discreet log contract enum oracle — Bitcoin DLC attestation for enumerated outcome events",
+        "price": "7.00"
+    },
+    "/dlc/oracle/numeric": {
+        "desc": "Discreet log contract numeric oracle — Bitcoin DLC digit decomposition attestation",
+        "price": "7.00"
+    },
+    "/dlc/oracle/threshold": {
+        "desc": "Discreet log contract threshold oracle — Bitcoin DLC attestation for above/below price events",
+        "price": "7.00"
+    },
+    "/oracle/basis/btc/usd": {
+        "desc": "BTC/USD spot-futures basis and annualized carry across 5 exchanges",
+        "price": "0.02"
+    },
+    "/oracle/basis/eth/usd": {
+        "desc": "Ethereum spot-futures basis and annualized carry — cross-venue arbitrage signal",
+        "price": "0.02"
+    },
+    "/oracle/basis/sol/usd": {
+        "desc": "Solana spot-futures basis and annualized carry — cross-venue arbitrage signal",
+        "price": "0.02"
+    },
+    "/oracle/breadth/equity": {
+        "desc": "MSBI — Breadth Index. Sector participation (% above 20DMA), RSP/SPY breadth momentum",
+        "price": "0.05"
+    },
+    "/oracle/compute/all": {
+        "desc": "GPU cloud compute pricing across all providers — H100, A100, RTX 4090, L40S hourly rates",
+        "price": "0.05"
+    },
+    "/oracle/compute/best/a100_sxm": {
+        "desc": "Cheapest A100 SXM GPU rental — best hourly rate across major cloud providers",
+        "price": "0.05"
+    },
+    "/oracle/compute/best/h100_sxm": {
+        "desc": "Cheapest H100 SXM GPU rental — best hourly rate across Azure, GCP, AWS, Lambda, CoreWeave",
+        "price": "0.05"
+    },
+    "/oracle/compute/best/h200": {
+        "desc": "Cheapest H200 GPU rental — best hourly rate for large model inference",
+        "price": "0.05"
+    },
+    "/oracle/compute/best/l40s": {
+        "desc": "Cheapest L40S GPU rental — best hourly rate for inference-optimized NVIDIA GPU",
+        "price": "0.05"
+    },
+    "/oracle/compute/best/rtx_4090": {
+        "desc": "Cheapest RTX 4090 GPU rental — best hourly rate for cost-efficient inference",
+        "price": "0.05"
+    },
+    "/oracle/compute/compare": {
+        "desc": "GPU model comparison — cheapest per model across all sources",
+        "price": "0.05"
+    },
+    "/oracle/contagion/market": {
+        "desc": "MSTI crypto-TradFi contagion index — measures correlation spillover between crypto and traditional financial markets",
+        "price": "0.05"
+    },
+    "/oracle/cot/btc": {
+        "desc": "Bitcoin CME commitment of traders — institutional futures positioning from CFTC",
+        "price": "1.00"
+    },
+    "/oracle/defi/metrics": {
+        "desc": "DeFi protocol metrics — TVL, avg supply APR, utilization for Aave, Compound, Morpho, Spark, Sky",
+        "price": "0.05"
+    },
+    "/oracle/defi/metrics/aave": {
+        "desc": "Aave V3 protocol metrics — TVL, avg supply APR across all chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/metrics/compound": {
+        "desc": "Compound V3 protocol metrics — TVL, utilization, avg supply APR",
+        "price": "0.05"
+    },
+    "/oracle/defi/metrics/morpho": {
+        "desc": "Morpho protocol metrics — TVL, avg supply APR across all markets",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/:protocol/:chain/:asset": {
+        "desc": "Supply and borrow APR for a single protocol/chain/asset triple — on-chain sourced, Ed25519 signed",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/all": {
+        "desc": "All DeFi lending rates — 9 protocols across 7 chains, 19 deployments, read on-chain",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/best/dai": {
+        "desc": "Best DAI supply yield across all protocols and chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/best/usdc": {
+        "desc": "Best USDC supply yield across all protocols and chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/best/usdt": {
+        "desc": "Best USDT supply yield across all protocols and chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/best/wbtc": {
+        "desc": "Best WBTC supply yield across all protocols and chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/best/weth": {
+        "desc": "Best WETH supply yield across all protocols and chains",
+        "price": "0.05"
+    },
+    "/oracle/defi/yield/compare": {
+        "desc": "USDC rate comparison across all DeFi lending protocols",
+        "price": "0.05"
+    },
+    "/oracle/econ/calendar": {
+        "desc": "Economic calendar — next 30 days, high/medium impact events for US, EU, GB, JP, CN",
+        "price": "0.05"
+    },
+    "/oracle/econ/calendar/country/eu": {
+        "desc": "EU economic events — next 30 days of Eurozone macro releases",
+        "price": "0.05"
+    },
+    "/oracle/econ/calendar/country/us": {
+        "desc": "US economic events — next 30 days of US macro releases",
+        "price": "0.05"
+    },
+    "/oracle/econ/calendar/fomc": {
+        "desc": "FOMC meeting schedule — upcoming Federal Reserve rate decision dates",
+        "price": "0.05"
+    },
+    "/oracle/econ/calendar/today": {
+        "desc": "Today's economic events — all high/medium impact releases scheduled for today",
+        "price": "0.05"
+    },
+    "/oracle/econ/commodities/brent": {
+        "desc": "Brent crude oil spot price — international benchmark for global energy markets and macro hedging",
+        "price": "1.00"
+    },
+    "/oracle/econ/commodities/copper": {
+        "desc": "Copper spot price — industrial metal bellwether for global growth and manufacturing activity",
+        "price": "1.00"
+    },
+    "/oracle/econ/commodities/dxy": {
+        "desc": "DXY US dollar index — broad USD strength measure for FX positioning and commodity hedging",
+        "price": "1.00"
+    },
+    "/oracle/econ/commodities/natgas": {
+        "desc": "Natural gas spot price — Henry Hub rate for energy market exposure and commodity inflation",
+        "price": "1.00"
+    },
+    "/oracle/econ/commodities/wti": {
+        "desc": "WTI crude oil spot price — West Texas Intermediate for energy trading and inflation modeling",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/employment": {
+        "desc": "EU employment change — eurozone jobs data for ECB policy and EUR macro exposure",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/gdp": {
+        "desc": "EU GDP implicit price deflator (2015=100) — Eurostat namq_10_gdp PD15_EUR",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/hicp": {
+        "desc": "EU HICP headline inflation — European Central Bank target for EUR rate trading",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/hicp_core": {
+        "desc": "EU Core HICP ex energy and food — ECB underlying inflation for rate policy forecasting",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/hicp_services": {
+        "desc": "EU Services HICP — sticky services inflation watched by ECB for rate decisions",
+        "price": "1.00"
+    },
+    "/oracle/econ/eu/unrate": {
+        "desc": "EU unemployment rate — eurozone labor market data for ECB policy and EUR macro trading",
+        "price": "1.00"
+    },
+    "/oracle/econ/expiry/btc": {
+        "desc": "BTC options expiry dates — next 8 Deribit expiries tagged daily/weekly/monthly/quarterly",
+        "price": "0.05"
+    },
+    "/oracle/econ/expiry/eth": {
+        "desc": "ETH options expiry dates — next 8 Deribit expiries tagged daily/weekly/monthly/quarterly",
+        "price": "0.05"
+    },
+    "/oracle/econ/surprises": {
+        "desc": "Macro surprise index — last 20 releases with actual vs estimate deviation. NOTE: currently 503, Finnhub dead",
+        "price": "0.10"
+    },
+    "/oracle/econ/us/cpi": {
+        "desc": "US Consumer Price Index — latest CPI inflation reading for Fed policy and macro trading",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/cpi_core": {
+        "desc": "US Core CPI ex food and energy — key Fed inflation target for interest rate decisions",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/fedfunds": {
+        "desc": "US Federal Reserve funds rate — current FOMC target for interest rate and bond trading",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/gdp": {
+        "desc": "US real GDP level — FRED GDPC1, billions of chained 2017 dollars, quarterly",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/nfp": {
+        "desc": "US Non-Farm Payrolls — monthly jobs report, most market-moving macro release for USD pairs",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/pce": {
+        "desc": "US PCE inflation — Fed preferred inflation measure for rate policy forecasting",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/unrate": {
+        "desc": "US unemployment rate — latest BLS jobs market reading for Fed dual mandate tracking",
+        "price": "1.00"
+    },
+    "/oracle/econ/us/yield_curve": {
+        "desc": "US Treasury yield curve 10Y-2Y spread — inversion signal for recession risk and rate regime",
+        "price": "1.00"
+    },
+    "/oracle/funding/btc/usd": {
+        "desc": "BTC/USD funding rate composite — 5 exchanges, OI-weighted + median, predicted rate, regime",
+        "price": "0.05"
+    },
+    "/oracle/funding/btc/usd/term-structure": {
+        "desc": "BTC perpetual-vs-futures funding term structure — carry curve and contango/backwardation regime",
+        "price": "0.05"
+    },
+    "/oracle/funding/eth/usd": {
+        "desc": "Ethereum perpetual funding rate — cross-exchange aggregated funding for carry trades",
+        "price": "0.05"
+    },
+    "/oracle/funding/eth/usd/term-structure": {
+        "desc": "ETH funding term structure — carry curve across maturities",
+        "price": "0.05"
+    },
+    "/oracle/funding/sol/usd": {
+        "desc": "Solana perpetual funding rate — cross-exchange aggregated funding for carry trades",
+        "price": "0.05"
+    },
+    "/oracle/funding/sol/usd/term-structure": {
+        "desc": "SOL funding term structure — carry curve and regime across maturities",
+        "price": "0.05"
+    },
+    "/oracle/gas/arbitrum": {
+        "desc": "Arbitrum L2 gas price — current transaction fee for Arbitrum One network",
+        "price": "0.01"
+    },
+    "/oracle/gas/base": {
+        "desc": "Base L2 gas price — current transaction fee for Coinbase Base network in Gwei",
+        "price": "0.01"
+    },
+    "/oracle/gas/ethereum": {
+        "desc": "Ethereum mainnet gas price — current base fee and priority fee in Gwei",
+        "price": "0.01"
+    },
+    "/oracle/gas/index": {
+        "desc": "Cross-chain gas index — normalized transaction cost across Ethereum, Base, Arbitrum, Polygon and Solana",
+        "price": "0.05"
+    },
+    "/oracle/gas/optimism": {
+        "desc": "Optimism L2 gas price — current transaction fee for Optimism network",
+        "price": "0.01"
+    },
+    "/oracle/gas/polygon": {
+        "desc": "Polygon gas price — current transaction fee for Polygon PoS network",
+        "price": "0.01"
+    },
+    "/oracle/gas/solana": {
+        "desc": "Solana transaction fee — current lamports per signature",
+        "price": "0.01"
+    },
+    "/oracle/greeks/btc/usd": {
+        "desc": "BTC options Greeks — cross-exchange consensus delta/gamma/theta/vega from 2130+ options",
+        "price": "0.05"
+    },
+    "/oracle/greeks/eth/usd": {
+        "desc": "ETH options Greeks — cross-exchange consensus from 1822+ options across 3 exchanges",
+        "price": "0.05"
+    },
+    "/oracle/greeks/sol/usd": {
+        "desc": "SOL options Greeks — Bybit native Greeks for 246+ options",
+        "price": "0.05"
+    },
+    "/oracle/history/funding/btc/usd": {
+        "desc": "BTC funding rate history — per-exchange rates, 18 days, batch Ed25519 signed",
+        "price": "0.05"
+    },
+    "/oracle/history/funding/eth/usd": {
+        "desc": "ETH funding rate history — per-exchange rates, 18 days",
+        "price": "0.05"
+    },
+    "/oracle/history/index/mssi": {
+        "desc": "MSSI stress index history — 56 days, per-row original signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/index/msti": {
+        "desc": "MSTI contagion index history — 56 days with per-row Ed25519 signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/index/msvi/btcusd": {
+        "desc": "MSVI volatility index history — 63 days, per-row original signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/index/msvi/ethusd": {
+        "desc": "MSVI volatility index history for ETH — 63 days, per-row original signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/index/msxi/btcusd": {
+        "desc": "MSXI sentiment index history — 60 days, per-row original signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/index/msxi/ethusd": {
+        "desc": "MSXI sentiment index history for ETH — 60 days, per-row original signatures",
+        "price": "0.10"
+    },
+    "/oracle/history/spot/btc/usd": {
+        "desc": "BTC spot price history — signed OHLCV, 1m/5m/1h/4h/1d intervals, up to 60 days",
+        "price": "0.05"
+    },
+    "/oracle/history/spot/eth/usd": {
+        "desc": "ETH spot price history — signed OHLCV, 1m/5m/1h/4h/1d intervals, up to 60 days",
+        "price": "0.05"
+    },
+    "/oracle/inference/all": {
+        "desc": "All LLM inference pricing — 6 providers, 26 models, normalized to $/M tokens",
+        "price": "0.02"
+    },
+    "/oracle/inference/anthropic/pricing": {
+        "desc": "Anthropic Claude model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/inference/cerebras/pricing": {
+        "desc": "Cerebras model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/inference/compare": {
+        "desc": "Cheapest LLM per tier (frontier/efficient/fast/reasoning) across all providers",
+        "price": "0.02"
+    },
+    "/oracle/inference/compare/task/chat": {
+        "desc": "Best LLM for chat tasks — cheapest efficient/fast tier model",
+        "price": "0.02"
+    },
+    "/oracle/inference/compare/task/long_context": {
+        "desc": "Best LLM for long-context tasks — largest context window",
+        "price": "0.02"
+    },
+    "/oracle/inference/compare/task/reasoning": {
+        "desc": "Best LLM for reasoning tasks — cheapest reasoning tier model",
+        "price": "0.02"
+    },
+    "/oracle/inference/fireworks/pricing": {
+        "desc": "Fireworks AI model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/inference/groq/pricing": {
+        "desc": "Groq model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/inference/openai/pricing": {
+        "desc": "OpenAI model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/inference/together/pricing": {
+        "desc": "Together AI model pricing — input/output $/M tokens, context windows",
+        "price": "0.02"
+    },
+    "/oracle/instruments/btc/options": {
+        "desc": "BTC options instrument discovery — 2002+ contracts, 106 strikes, 11 expiries across 3 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/instruments/eth/options": {
+        "desc": "ETH options instrument discovery across 3 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/instruments/sol/options": {
+        "desc": "Solana options instruments — full contract listing across strikes and expiries",
+        "price": "0.03"
+    },
+    "/oracle/intel/consensus": {
+        "desc": "Regime Consensus — aggregates BTC/ETH/SOL perp, TradFi, MSSI, MSTI, Macro Risk into alignment score",
+        "price": "0.50"
+    },
+    "/oracle/intel/defi/opportunity": {
+        "desc": "Risk-adjusted DeFi yield — stress and contagion penalized APR ranking across 15+ protocols",
+        "price": "0.75"
+    },
+    "/oracle/intel/divergence": {
+        "desc": "Cross-Asset Divergence — disagreement between crypto and TradFi regimes. NONE/LOW/MODERATE/HIGH/EXTREME",
+        "price": "0.50"
+    },
+    "/oracle/intel/macro/risk": {
+        "desc": "Cross-domain macro risk — MSSI + MSTI + econ calendar. risk_score 0-100",
+        "price": "1.00"
+    },
+    "/oracle/intel/perp/setup": {
+        "desc": "Scans BTC+ETH+SOL perp regimes simultaneously with signal_alignment, edge and invalidation",
+        "price": "1.00"
+    },
+    "/oracle/intel/prediction/divergence": {
+        "desc": "Cross-venue prediction market divergence — Kalshi vs Polymarket spread with significance",
+        "price": "1.00"
+    },
+    "/oracle/intel/regime/change": {
+        "desc": "Detects perp regime transitions vs 2h ago for BTC, ETH, SOL with from_regime and to_regime",
+        "price": "0.50"
+    },
+    "/oracle/intel/regime/persistence": {
+        "desc": "Regime Persistence — historical context for current perp regime duration",
+        "price": "0.15"
+    },
+    "/oracle/iv-surface/btc/usd": {
+        "desc": "BTC multi-exchange IV surface — per-strike IV from 3 exchanges with divergence detection",
+        "price": "0.05"
+    },
+    "/oracle/iv-surface/eth/usd": {
+        "desc": "ETH multi-exchange IV surface with divergence detection",
+        "price": "0.05"
+    },
+    "/oracle/iv-surface/sol/usd": {
+        "desc": "Solana implied volatility surface — full strike and expiry IV grid",
+        "price": "0.05"
+    },
+    "/oracle/iv/btc/usd": {
+        "desc": "BTC implied volatility surface — ATM IV, 25-delta skew, term structure from 870+ Deribit options",
+        "price": "0.03"
+    },
+    "/oracle/iv/eth/usd": {
+        "desc": "ETH implied volatility surface — ATM IV, skew, term structure from 690+ Deribit options",
+        "price": "0.03"
+    },
+    "/oracle/leadership/equity": {
+        "desc": "MSLI — Leadership Index. Growth vs Value, Tech vs Market, Small vs Large, Offensive vs Defensive",
+        "price": "0.05"
+    },
+    "/oracle/liq-flow/btc": {
+        "desc": "BTC liquidation flow — 1h/4h/24h windows, long/short breakdown, dominant side, largest event",
+        "price": "0.05"
+    },
+    "/oracle/liq-flow/eth": {
+        "desc": "ETH liquidation flow — 1h/4h/24h windows, long/short breakdown, dominant side, largest event",
+        "price": "0.05"
+    },
+    "/oracle/liq-flow/sol": {
+        "desc": "SOL liquidation flow — 1h/4h/24h windows, long/short breakdown, dominant side, largest event",
+        "price": "0.05"
+    },
+    "/oracle/liquidations/btc/usd": {
+        "desc": "BTC liquidation flow — real-time across 4 exchanges with imbalance and clustering",
+        "price": "0.03"
+    },
+    "/oracle/liquidations/eth/usd": {
+        "desc": "ETH liquidation flow — real-time across 4 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/liquidations/sol/usd": {
+        "desc": "SOL liquidation flow — real-time across 4 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/marine/:lat/:lon/seastate": {
+        "desc": "Real-time sea state at GPS coordinates — wave height, period and conditions",
+        "price": "0.10"
+    },
+    "/oracle/marine/route/summary": {
+        "desc": "Voyage route sea state summary — wave conditions along shipping route",
+        "price": "0.20"
+    },
+    "/oracle/marine/vessel/:mmsi": {
+        "desc": "Vessel position and sea state — AIS ship tracking combined with wave conditions for maritime risk",
+        "price": "0.50"
+    },
+    "/oracle/marine/voyage/forecast": {
+        "desc": "Voyage weather forecast — multi-waypoint sea state prediction for maritime risk management",
+        "price": "0.50"
+    },
+    "/oracle/market/support/all/btc": {
+        "desc": "BTC/USD union of pivot+density+round with cross-method corroboration",
+        "price": "0.15"
+    },
+    "/oracle/market/support/all/eth": {
+        "desc": "ETH/USD union of pivot+density+round with cross-method corroboration",
+        "price": "0.15"
+    },
+    "/oracle/market/support/all/sol": {
+        "desc": "SOL/USD union of pivot+density+round with cross-method corroboration",
+        "price": "0.15"
+    },
+    "/oracle/market/support/density/btc": {
+        "desc": "BTC/USD dwell levels (where price spent time / acceptance)",
+        "price": "0.15"
+    },
+    "/oracle/market/support/density/eth": {
+        "desc": "ETH/USD dwell levels (where price spent time / acceptance)",
+        "price": "0.15"
+    },
+    "/oracle/market/support/density/sol": {
+        "desc": "SOL/USD dwell levels (where price spent time / acceptance)",
+        "price": "0.15"
+    },
+    "/oracle/market/support/pivot/btc": {
+        "desc": "BTC/USD swing-pivot levels (where price reversed), up to 120d of spot history",
+        "price": "0.15"
+    },
+    "/oracle/market/support/pivot/eth": {
+        "desc": "ETH/USD swing-pivot levels (where price reversed), up to 120d of spot history",
+        "price": "0.15"
+    },
+    "/oracle/market/support/pivot/sol": {
+        "desc": "SOL/USD swing-pivot levels (where price reversed), up to 120d of spot history",
+        "price": "0.15"
+    },
+    "/oracle/market/support/round/btc": {
+        "desc": "BTC/USD psychological round-number levels",
+        "price": "0.15"
+    },
+    "/oracle/market/support/round/eth": {
+        "desc": "ETH/USD psychological round-number levels",
+        "price": "0.15"
+    },
+    "/oracle/market/support/round/sol": {
+        "desc": "SOL/USD psychological round-number levels",
+        "price": "0.15"
+    },
+    "/oracle/oi/btc/usd": {
+        "desc": "BTC/USD open interest across 5 exchanges with 1h/4h/24h deltas",
+        "price": "0.01"
+    },
+    "/oracle/oi/eth/usd": {
+        "desc": "Ethereum open interest across 5 exchanges — aggregated OI with 1h/4h/24h deltas",
+        "price": "0.01"
+    },
+    "/oracle/oi/sol/usd": {
+        "desc": "Solana open interest across 5 exchanges — aggregated OI with deltas",
+        "price": "0.01"
+    },
+    "/oracle/orderbook/btc/usd": {
+        "desc": "BTC order book imbalance — depth, spread, sweep cost across 5 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/orderbook/eth/usd": {
+        "desc": "ETH order book imbalance — depth and spread across 5 exchanges",
+        "price": "0.03"
+    },
+    "/oracle/perp/btc": {
+        "desc": "BTC perp trading regime — 10-signal classification with bias, confidence, risk",
+        "price": "0.15"
+    },
+    "/oracle/perp/eth": {
+        "desc": "ETH perp trading regime — 10-signal classification with bias, confidence, risk",
+        "price": "0.15"
+    },
+    "/oracle/perp/sol": {
+        "desc": "SOL perp trading regime — 10-signal classification with bias, confidence, risk",
+        "price": "0.15"
+    },
+    "/oracle/prediction/btc/price": {
+        "desc": "BTC same-day price distribution from Polymarket — median, quantiles (p10-p90), entropy",
+        "price": "0.25"
+    },
+    "/oracle/prediction/cpi": {
+        "desc": "CPI month-over-month probability distribution from Kalshi — expected value, entropy",
+        "price": "0.25"
+    },
+    "/oracle/prediction/cpi/:period_code": {
+        "desc": "CPI month-over-month probability for a single period",
+        "price": "0.25"
+    },
+    "/oracle/prediction/eth/price": {
+        "desc": "ETH same-day price distribution from Polymarket — median, quantiles (p10-p90), entropy",
+        "price": "0.25"
+    },
+    "/oracle/prediction/fed": {
+        "desc": "Fed rate probability distribution — market-implied FOMC rate path from Kalshi + Polymarket",
+        "price": "0.50"
+    },
+    "/oracle/prediction/fed/:meeting_code": {
+        "desc": "Fed rate probability for a single FOMC meeting — implied rate, prob cut/hold/hike",
+        "price": "0.50"
+    },
+    "/oracle/prediction/gdp": {
+        "desc": "GDP annualized growth probability distribution from Kalshi — expected value, entropy",
+        "price": "0.25"
+    },
+    "/oracle/prediction/gdp/:period_code": {
+        "desc": "GDP annualized growth probability for a single period",
+        "price": "0.25"
+    },
+    "/oracle/prediction/options/btc": {
+        "desc": "BTC risk-neutral price distributions at 12 horizons via Breeden-Litzenberger from SVI surfaces",
+        "price": "0.50"
+    },
+    "/oracle/prediction/options/eth": {
+        "desc": "ETH risk-neutral price distributions at 12 horizons via Breeden-Litzenberger from SVI surfaces",
+        "price": "0.50"
+    },
+    "/oracle/price/ada/usd": {
+        "desc": "Real-time Cardano ADA price in USD, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/price/brl/usd": {
+        "desc": "BRL/USD — live Brazilian real to US dollar from exchange order books (USDT/USD ÷ USDT/BRL), 24/7; prices DePix",
+        "price": "0.01"
+    },
+    "/oracle/price/btc/eur": {
+        "desc": "Real-time Bitcoin price in EUR, multi-exchange aggregated oracle for European markets",
+        "price": "0.01"
+    },
+    "/oracle/price/btc/eur/vwap": {
+        "desc": "Bitcoin volume-weighted average price in EUR for European market execution",
+        "price": "0.02"
+    },
+    "/oracle/price/btc/jpy": {
+        "desc": "Real-time Bitcoin price in JPY, multi-exchange aggregated oracle for Japanese markets",
+        "price": "0.01"
+    },
+    "/oracle/price/btc/usd": {
+        "desc": "Real-time Bitcoin price in USD, a median across 10 exchanges including Binance, Coinbase, Kraken and Bullish",
+        "price": "0.01"
+    },
+    "/oracle/price/btc/usd/vwap": {
+        "desc": "Bitcoin volume-weighted average price in USD for order execution and fair value benchmarking",
+        "price": "0.02"
+    },
+    "/oracle/price/cad/jpy": {
+        "desc": "CAD/JPY forex exchange rate — Canadian dollar to Japanese yen",
+        "price": "0.01"
+    },
+    "/oracle/price/chf/cad": {
+        "desc": "CHF/CAD forex exchange rate — Swiss franc to Canadian dollar",
+        "price": "0.01"
+    },
+    "/oracle/price/chf/jpy": {
+        "desc": "CHF/JPY forex exchange rate — Swiss franc to Japanese yen",
+        "price": "0.01"
+    },
+    "/oracle/price/cny/cad": {
+        "desc": "CNY/CAD forex exchange rate — Chinese yuan to Canadian dollar",
+        "price": "0.01"
+    },
+    "/oracle/price/cny/jpy": {
+        "desc": "CNY/JPY forex exchange rate — Chinese yuan to Japanese yen",
+        "price": "0.01"
+    },
+    "/oracle/price/doge/usd": {
+        "desc": "Real-time Dogecoin price in USD, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/price/eth/eur": {
+        "desc": "Real-time Ethereum price in EUR, multi-exchange aggregated oracle for European markets",
+        "price": "0.01"
+    },
+    "/oracle/price/eth/jpy": {
+        "desc": "Real-time Ethereum price in JPY, multi-exchange aggregated oracle for Japanese markets",
+        "price": "0.01"
+    },
+    "/oracle/price/eth/usd": {
+        "desc": "Real-time Ethereum price in USD, a median across 6 exchanges including Coinbase, Kraken, Bitstamp and Bullish",
+        "price": "0.01"
+    },
+    "/oracle/price/eth/usd/vwap": {
+        "desc": "Ethereum volume-weighted average price in USD for order execution and fair value",
+        "price": "0.02"
+    },
+    "/oracle/price/eur/cad": {
+        "desc": "EUR/CAD forex exchange rate — euro to Canadian dollar",
+        "price": "0.01"
+    },
+    "/oracle/price/eur/chf": {
+        "desc": "EUR/CHF forex exchange rate — euro to Swiss franc safe-haven rate",
+        "price": "0.01"
+    },
+    "/oracle/price/eur/cny": {
+        "desc": "EUR/CNY forex exchange rate — euro to Chinese yuan",
+        "price": "0.01"
+    },
+    "/oracle/price/eur/gbp": {
+        "desc": "EUR/GBP forex exchange rate — euro to British pound sterling",
+        "price": "0.01"
+    },
+    "/oracle/price/eur/jpy": {
+        "desc": "EUR/JPY forex exchange rate — euro to Japanese yen cross rate",
+        "price": "0.01"
+    },
+    "/oracle/price/eur/usd": {
+        "desc": "EUR/USD forex exchange rate — real-time euro to US dollar for FX trading and settlement",
+        "price": "0.01"
+    },
+    "/oracle/price/gbp/cad": {
+        "desc": "GBP/CAD forex exchange rate — British pound to Canadian dollar",
+        "price": "0.01"
+    },
+    "/oracle/price/gbp/chf": {
+        "desc": "GBP/CHF forex exchange rate — British pound to Swiss franc",
+        "price": "0.01"
+    },
+    "/oracle/price/gbp/cny": {
+        "desc": "GBP/CNY forex exchange rate — British pound to Chinese yuan",
+        "price": "0.01"
+    },
+    "/oracle/price/gbp/jpy": {
+        "desc": "GBP/JPY forex exchange rate — British pound to Japanese yen",
+        "price": "0.01"
+    },
+    "/oracle/price/gbp/usd": {
+        "desc": "GBP/USD forex exchange rate — British pound to US dollar cable rate",
+        "price": "0.01"
+    },
+    "/oracle/price/sol/eur": {
+        "desc": "Real-time Solana price in EUR, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/price/sol/jpy": {
+        "desc": "Real-time Solana price in JPY, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/price/sol/usd": {
+        "desc": "Real-time Solana price in USD, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/price/usd/cad": {
+        "desc": "USD/CAD forex exchange rate — US dollar to Canadian dollar loonie rate",
+        "price": "0.01"
+    },
+    "/oracle/price/usd/chf": {
+        "desc": "USD/CHF forex exchange rate — US dollar to Swiss franc safe-haven rate",
+        "price": "0.01"
+    },
+    "/oracle/price/usd/cny": {
+        "desc": "USD/CNY forex exchange rate — US dollar to Chinese yuan",
+        "price": "0.01"
+    },
+    "/oracle/price/usd/jpy": {
+        "desc": "USD/JPY forex exchange rate — US dollar to Japanese yen, major FX pair",
+        "price": "0.01"
+    },
+    "/oracle/price/usdc/usd": {
+        "desc": "USDC stablecoin peg monitor — real-time Circle USDC deviation from $1.00 USD",
+        "price": "0.01"
+    },
+    "/oracle/price/usdt/eur": {
+        "desc": "USDT/EUR derived rate for stablecoin exposure in European markets",
+        "price": "0.01"
+    },
+    "/oracle/price/usdt/jpy": {
+        "desc": "USDT/JPY derived rate for stablecoin exposure in Japanese markets",
+        "price": "0.01"
+    },
+    "/oracle/price/usdt/usd": {
+        "desc": "USDT stablecoin peg monitor — real-time Tether deviation from $1.00 USD",
+        "price": "0.01"
+    },
+    "/oracle/price/xau/eur": {
+        "desc": "Real-time gold spot price in EUR for European commodity exposure",
+        "price": "0.01"
+    },
+    "/oracle/price/xau/jpy": {
+        "desc": "Real-time gold spot price in JPY for Asian commodity markets",
+        "price": "0.01"
+    },
+    "/oracle/price/xau/usd": {
+        "desc": "Real-time gold spot price in USD for commodity trading and macro hedging",
+        "price": "0.01"
+    },
+    "/oracle/price/xrp/usd": {
+        "desc": "Real-time XRP price in USD, aggregated from multiple exchanges",
+        "price": "0.01"
+    },
+    "/oracle/regime/equity": {
+        "desc": "TradFi Regime — classifies equity market regime from MESI, MNVI and US yield curve",
+        "price": "0.10"
+    },
+    "/oracle/regime/equity/composite": {
+        "desc": "MSERC — Equity Regime Composite. 2D framework: Health vs Stress",
+        "price": "0.10"
+    },
+    "/oracle/regime/liquidity": {
+        "desc": "Liquidity Regime — classifies BTC liquidity from funding, OI, basis, liquidation flow, orderbook",
+        "price": "0.10"
+    },
+    "/oracle/rotation/equity": {
+        "desc": "MSRI — Rotation Index. 11-sector ETF momentum: Offensive + Cyclical vs Defensive",
+        "price": "0.10"
+    },
+    "/oracle/sentiment/btc/usd": {
+        "desc": "MSXI Bitcoin market sentiment index — funding rate, long/short ratio, open interest momentum and liquidation skew",
+        "price": "0.05"
+    },
+    "/oracle/sentiment/eth/usd": {
+        "desc": "MSXI Ethereum market sentiment index — funding rate, long/short ratio, open interest momentum and liquidation skew",
+        "price": "0.05"
+    },
+    "/oracle/stress/equity": {
+        "desc": "MESI — Mycelia Equity Stress Index. VIX, VVIX, IV/RV ratio, credit stress, DXY momentum. 0-100",
+        "price": "0.05"
+    },
+    "/oracle/stress/market": {
+        "desc": "MSSI market stress index — composite systemic risk signal across crypto, equity, credit and volatility markets",
+        "price": "0.05"
+    },
+    "/oracle/svi/btc/usd": {
+        "desc": "BTC SVI surface — Gatheral 2004 arbitrage-free IV parameterization",
+        "price": "0.05"
+    },
+    "/oracle/svi/eth/usd": {
+        "desc": "ETH SVI surface — arbitrage-free fitted IV across all expiries",
+        "price": "0.05"
+    },
+    "/oracle/svi/sol/usd": {
+        "desc": "Solana SVI volatility surface parameters — stochastic vol interpolation",
+        "price": "0.05"
+    },
+    "/oracle/synopsis/btc": {
+        "desc": "BTC market state synopsis — stress and contagion context plus BTC funding, OI, liq flow, regime",
+        "price": "0.50"
+    },
+    "/oracle/synopsis/eth": {
+        "desc": "ETH market state synopsis — stress and contagion context plus ETH funding, OI, liq flow, regime",
+        "price": "0.50"
+    },
+    "/oracle/synopsis/market": {
+        "desc": "Market state synopsis for BTC, ETH and SOL — stress, contagion, macro risk and per-currency detail",
+        "price": "1.00"
+    },
+    "/oracle/synopsis/sol": {
+        "desc": "SOL market state synopsis — stress and contagion context plus SOL funding, OI, liq flow, regime",
+        "price": "0.50"
+    },
+    "/oracle/term-structure/btc/usd": {
+        "desc": "BTC futures term structure — basis, annualized carry, contango/backwardation across 3 exchanges",
+        "price": "0.05"
+    },
+    "/oracle/term-structure/eth/usd": {
+        "desc": "ETH futures term structure — carry curve across Deribit, OKX, Bybit",
+        "price": "0.05"
+    },
+    "/oracle/term-structure/sol/usd": {
+        "desc": "Solana futures term structure — basis, annualized carry, contango/backwardation",
+        "price": "0.05"
+    },
+    "/oracle/volatility/btc/usd": {
+        "desc": "MSVI Bitcoin volatility index — composite of realized vol, implied vol, term structure, funding stress and put/call",
+        "price": "0.05"
+    },
+    "/oracle/volatility/eth/usd": {
+        "desc": "MSVI Ethereum volatility index — composite of realized vol, implied vol, term structure, funding stress and put/call",
+        "price": "0.05"
+    },
+    "/oracle/volatility/nq/usd": {
+        "desc": "MNVI — Mycelia NQ Volatility Index. NDX RV30, VIX term structure, vol beta, VVIX, NDX momentum",
+        "price": "0.05"
+    },
+    "/oracle/weather/:lat/:lon/:metric/:window": {
+        "desc": "Weather risk index at GPS coordinates — temperature, precipitation and severe weather",
+        "price": "0.10"
+    }
 }
 
-# ── Indices ───────────────────────────────────────────────────────────────────
 
-INDICES = {
-    "MSVI_BTC": "/oracle/volatility/btc/usd",
-    "MSVI_ETH": "/oracle/volatility/eth/usd",
-    "MSXI_BTC": "/oracle/sentiment/btc/usd",
-    "MSXI_ETH": "/oracle/sentiment/eth/usd",
-    "MSSI": "/oracle/stress/market",
-    "MSTI": "/oracle/contagion/market",
-}
+def route_key(path: str) -> str | None:
+    """The ROUTES key covering a path, or None.
 
-# ── Derivatives data ──────────────────────────────────────────────────────────
-
-DERIVATIVES = {
-    # Funding rates ($0.05)
-    "FUNDING_BTC": "/oracle/funding/btc/usd",
-    "FUNDING_ETH": "/oracle/funding/eth/usd",
-    "FUNDING_SOL": "/oracle/funding/sol/usd",
-    # Open interest ($0.01)
-    "OI_BTC": "/oracle/oi/btc/usd",
-    "OI_ETH": "/oracle/oi/eth/usd",
-    "OI_SOL": "/oracle/oi/sol/usd",
-    # Basis/carry ($0.02)
-    "BASIS_BTC": "/oracle/basis/btc/usd",
-    "BASIS_ETH": "/oracle/basis/eth/usd",
-    "BASIS_SOL": "/oracle/basis/sol/usd",
-    # Liquidation snapshot ($0.03) — distinct from liq-flow ($0.05)
-    "LIQUIDATIONS_BTC": "/oracle/liquidations/btc/usd",
-    "LIQUIDATIONS_ETH": "/oracle/liquidations/eth/usd",
-    "LIQUIDATIONS_SOL": "/oracle/liquidations/sol/usd",
-    # Order book imbalance ($0.03)
-    "ORDERBOOK_BTC": "/oracle/orderbook/btc/usd",
-    "ORDERBOOK_ETH": "/oracle/orderbook/eth/usd",
-    # IV surface — single exchange Deribit ATM ($0.03)
-    "IV_BTC": "/oracle/iv/btc/usd",
-    "IV_ETH": "/oracle/iv/eth/usd",
-    # Multi-exchange IV surface — 3 exchanges, cross-exchange divergence ($0.05)
-    "IV_SURFACE_BTC": "/oracle/iv-surface/btc/usd",
-    "IV_SURFACE_ETH": "/oracle/iv-surface/eth/usd",
-    "IV_SURFACE_SOL": "/oracle/iv-surface/sol/usd",
-    # SVI volatility surface — Gatheral arbitrage-free parameterization ($0.05)
-    "SVI_BTC": "/oracle/svi/btc/usd",
-    "SVI_ETH": "/oracle/svi/eth/usd",
-    "SVI_SOL": "/oracle/svi/sol/usd",
-    # Multi-exchange options Greeks ($0.05)
-    "GREEKS_BTC": "/oracle/greeks/btc/usd",
-    "GREEKS_ETH": "/oracle/greeks/eth/usd",
-    "GREEKS_SOL": "/oracle/greeks/sol/usd",
-    # Futures term structure ($0.05)
-    "TERM_STRUCTURE_BTC": "/oracle/term-structure/btc/usd",
-    "TERM_STRUCTURE_ETH": "/oracle/term-structure/eth/usd",
-    "TERM_STRUCTURE_SOL": "/oracle/term-structure/sol/usd",
-    # Options instrument discovery ($0.03)
-    "INSTRUMENTS_BTC": "/oracle/instruments/btc/options",
-    "INSTRUMENTS_ETH": "/oracle/instruments/eth/options",
-    "INSTRUMENTS_SOL": "/oracle/instruments/sol/options",
-}
-
-# ── Gas oracle ────────────────────────────────────────────────────────────────
-
-GAS_CHAINS = {
-    "ETHEREUM": "/oracle/gas/ethereum",
-    "BASE": "/oracle/gas/base",
-    "ARBITRUM": "/oracle/gas/arbitrum",
-    "POLYGON": "/oracle/gas/polygon",
-    "OPTIMISM": "/oracle/gas/optimism",
-    "SOLANA": "/oracle/gas/solana",
-    "INDEX": "/oracle/gas/index",
-}
-
-# ── DeFi Yield Oracle ─────────────────────────────────────────────────────────
-
-DEFI_YIELD_ENDPOINTS = {
-    "ALL": "/oracle/defi/yield/all",
-    "COMPARE": "/oracle/defi/yield/compare",
-    "BEST_USDC": "/oracle/defi/yield/best/usdc",
-    "BEST_USDT": "/oracle/defi/yield/best/usdt",
-    "BEST_WETH": "/oracle/defi/yield/best/weth",
-    "BEST_DAI": "/oracle/defi/yield/best/dai",
-    "BEST_WBTC": "/oracle/defi/yield/best/wbtc",
-    "CATALOGUE": "/oracle/defi/yield/catalogue",
-}
-
-# ── Pricing tiers ─────────────────────────────────────────────────────────────
-
-ECON_COMMODITIES_PAIRS = {
-    "US_CPI", "US_CPI_CORE", "US_UNRATE", "US_NFP", "US_FEDFUNDS",
-    "US_GDP", "US_PCE", "US_YIELD_CURVE",
-    "EU_HICP", "EU_HICP_CORE", "EU_HICP_SERVICES", "EU_UNRATE", "EU_GDP", "EU_EMPLOYMENT",
-    "WTI", "BRENT", "NATGAS", "COPPER", "DXY",
-}
-VWAP_PAIRS = {"BTCUSD_VWAP", "BTCEUR_VWAP", "ETHUSD_VWAP"}
-INDEX_KEYS = set(INDICES.keys())
-FUNDING_KEYS = {"FUNDING_BTC", "FUNDING_ETH", "FUNDING_SOL"}
-OI_KEYS = {"OI_BTC", "OI_ETH", "OI_SOL"}
-BASIS_KEYS = {"BASIS_BTC", "BASIS_ETH", "BASIS_SOL"}
-LIQUIDATION_KEYS = {"LIQUIDATIONS_BTC", "LIQUIDATIONS_ETH", "LIQUIDATIONS_SOL"}
-ORDERBOOK_KEYS = {"ORDERBOOK_BTC", "ORDERBOOK_ETH"}
-IV_KEYS = {"IV_BTC", "IV_ETH"}
-INSTRUMENTS_KEYS = {"INSTRUMENTS_BTC", "INSTRUMENTS_ETH", "INSTRUMENTS_SOL"}
-FIVE_CENT_DERIV_KEYS = {
-    "IV_SURFACE_BTC", "IV_SURFACE_ETH", "IV_SURFACE_SOL",
-    "SVI_BTC", "SVI_ETH", "SVI_SOL",
-    "GREEKS_BTC", "GREEKS_ETH", "GREEKS_SOL",
-    "TERM_STRUCTURE_BTC", "TERM_STRUCTURE_ETH", "TERM_STRUCTURE_SOL",
-}
+    A filled parameterised path -- /oracle/prediction/fed/2026-12 -- is not a key;
+    the key is /oracle/prediction/fed/:meeting_code. THE ONE COPY of this matcher:
+    tools.py and client.py both had their own, and two copies of a rule is how the
+    402 notice came to quote "a fee" for every parameterised route while the tool
+    that fetched it resolved correctly.
+    """
+    if path in ROUTES:
+        return path
+    for key in ROUTES:
+        if ":" not in key:
+            continue
+        kp, pp = key.split("/"), path.split("/")
+        if len(kp) == len(pp) and all(k.startswith(":") or k == p
+                                      for k, p in zip(kp, pp)):
+            return key
+    return None
 
 
-def get_wallet_key() -> str | None:
-    return os.environ.get("MYCELIA_WALLET_PRIVATE_KEY")
+def price_for(path: str) -> str:
+    """Price for a path, filled or templated. Prefer this to get_price_usd."""
+    key = route_key(path)
+    return get_price_usd(key) if key else ""
+
+
+def get_price_usd(path: str) -> str:
+    """The price for an EXACT route path.
+
+    Returns "" for an unknown path rather than guessing. The previous implementation
+    inferred a price from key-set membership, which is how econ calls came to be
+    quoted at a tenth of what they cost: a key fell in the wrong set and nothing
+    checked it against the route table.
+    """
+    meta = ROUTES.get(path)
+    return f"${meta['price']}" if meta else ""
+
+
+def describe(path: str) -> str:
+    """The proxy's own description for a route, verbatim."""
+    return (ROUTES.get(path) or {}).get("desc", "")
+
+
+def url_for(path: str) -> str:
+    return API_BASE_URL + path
+
+
+def paths_under(prefix: str) -> list[str]:
+    """Every known route beginning with prefix, sorted. Used by the tools to
+    enumerate what they can serve without a second hand-written list."""
+    return sorted(p for p in ROUTES if p.startswith(prefix))
 
 
 def is_paid_mode() -> bool:
-    return get_wallet_key() is not None
+    import os
+    return bool(os.environ.get("MYCELIA_WALLET_PRIVATE_KEY"))
 
 
-def get_price_usd(key: str) -> str:
-    key = key.upper().replace("/", "").replace("-", "_")
-    if key in ECON_COMMODITIES_PAIRS:
-        return "$0.10"
-    if key in VWAP_PAIRS:
-        return "$0.02"
-    if key in INDEX_KEYS or key in FUNDING_KEYS:
-        return "$0.05"
-    if key in FIVE_CENT_DERIV_KEYS:
-        return "$0.05"
-    if key in BASIS_KEYS:
-        return "$0.02"
-    if key in OI_KEYS:
-        return "$0.01"
-    if key in LIQUIDATION_KEYS or key in ORDERBOOK_KEYS or key in IV_KEYS or key in INSTRUMENTS_KEYS:
-        return "$0.03"
-    if key == "COT_BTC":
-        return "$1.00"
-    # Regime / intel pricing
-    if key in {"EQUITY", "LIQUIDITY"}:
-        return "$0.10"
-    if key in {"MESI", "MNVI", "MSLI", "MSBI"}:
-        return "$0.05"
-    if key == "EQUITY_REGIME":
-        return "$0.10"
-    if key in {"DIVERGENCE", "CONSENSUS", "REGIME_CHANGE"}:
-        return "$0.50"
-    if key == "PERSISTENCE":
-        return "$0.15"
-    return "$0.01"
+def get_wallet_key() -> str:
+    import os
+    return os.environ.get("MYCELIA_WALLET_PRIVATE_KEY", "")
 
 
-def get_endpoint(pair: str) -> str:
-    pair = pair.upper().replace("/", "").replace("-", "_")
-    if pair not in SUPPORTED_PAIRS:
-        raise ValueError(
-            f"Unsupported pair: '{pair}'. "
-            f"Supported: {', '.join(sorted(SUPPORTED_PAIRS.keys()))}"
-        )
-    path = SUPPORTED_PAIRS[pair]
-    if not is_paid_mode():
-        path = path + "/preview"
-    return API_BASE_URL + path
+# Convenience groupings, derived from ROUTES rather than declared separately, so a
+# new route in routes.ts appears here the moment this file is regenerated.
+PRICE_PATHS = [p for p in paths_under("/oracle/price/") if not p.endswith("/vwap")]
+VWAP_PATHS = [p for p in paths_under("/oracle/price/") if p.endswith("/vwap")]
+ECON_PATHS = [p for p in paths_under("/oracle/econ/")
+              if "/calendar" not in p and "/expiry" not in p and "surprises" not in p]
+CALENDAR_PATHS = [p for p in paths_under("/oracle/econ/calendar")] + \
+                 [p for p in paths_under("/oracle/econ/expiry")]
+INTEL_PATHS = paths_under("/oracle/intel/")
+SUPPORT_PATHS = paths_under("/oracle/market/support/")
+PREDICTION_PATHS = paths_under("/oracle/prediction/")
+HISTORY_PATHS = paths_under("/oracle/history/")
+DEFI_PATHS = paths_under("/oracle/defi/")
+COMPUTE_PATHS = paths_under("/oracle/compute/")
+INFERENCE_PATHS = paths_under("/oracle/inference/")
+GAS_PATHS = paths_under("/oracle/gas/")
+DLC_PATHS = paths_under("/dlc/oracle/")
 
+TOTAL_ROUTES = len(ROUTES)
 
-def get_generic_endpoint(endpoint_map: dict, key: str) -> str:
-    key = key.upper().replace("/", "").replace("-", "_")
-    if key not in endpoint_map:
-        raise ValueError(
-            f"Unsupported key: '{key}'. "
-            f"Supported: {', '.join(sorted(endpoint_map.keys()))}"
-        )
-    path = endpoint_map[key]
-    if not is_paid_mode():
-        path = path + "/preview"
-    return API_BASE_URL + path
-
-# ── GPU Compute Oracle ────────────────────────────────────────────────────────
-
-COMPUTE_ENDPOINTS = {
-    "ALL": "/oracle/compute/all",
-    "COMPARE": "/oracle/compute/compare",
-    "BEST_H100_SXM": "/oracle/compute/best/h100_sxm",
-    "BEST_A100_SXM": "/oracle/compute/best/a100_sxm",
-    "BEST_H200": "/oracle/compute/best/h200",
-    "BEST_RTX_4090": "/oracle/compute/best/rtx_4090",
-    "BEST_L40S": "/oracle/compute/best/l40s",
-    "BEST_MI300X": "/oracle/compute/best/mi300x",
-    "BEST_V100": "/oracle/compute/best/v100",
-    "BEST_T4": "/oracle/compute/best/t4",
-    "CATALOGUE": "/oracle/compute/catalogue",
-}
-
-# ── Inference Pricing Oracle (NEW S89) ───────────────────────────────────────
-
-INFERENCE_ENDPOINTS = {
-    "OPENAI":    "/oracle/inference/openai/pricing",
-    "ANTHROPIC": "/oracle/inference/anthropic/pricing",
-    "GROQ":      "/oracle/inference/groq/pricing",
-    "TOGETHER":  "/oracle/inference/together/pricing",
-    "FIREWORKS": "/oracle/inference/fireworks/pricing",
-    "CEREBRAS":  "/oracle/inference/cerebras/pricing",
-    "ALL":       "/oracle/inference/all",
-    "COMPARE":   "/oracle/inference/compare",
-    "TASK_CHAT":         "/oracle/inference/compare/task/chat",
-    "TASK_CODE":         "/oracle/inference/compare/task/code",
-    "TASK_REASONING":    "/oracle/inference/compare/task/reasoning",
-    "TASK_LONG_CONTEXT": "/oracle/inference/compare/task/long_context",
-    "TASK_FAST":         "/oracle/inference/compare/task/fast",
-}
-
-# ── Econ Calendar Oracle (NEW S89) ───────────────────────────────────────────
-
-ECON_CALENDAR_ENDPOINTS = {
-    "CALENDAR":         "/oracle/econ/calendar",
-    "TODAY":            "/oracle/econ/calendar/today",
-    "FOMC":             "/oracle/econ/calendar/fomc",
-    "COUNTRY_US":       "/oracle/econ/calendar/country/us",
-    "COUNTRY_EU":       "/oracle/econ/calendar/country/eu",
-    "COUNTRY_GB":       "/oracle/econ/calendar/country/gb",
-    "COUNTRY_JP":       "/oracle/econ/calendar/country/jp",
-    "SURPRISES":        "/oracle/econ/surprises",
-    "EXPIRY_BTC":       "/oracle/econ/expiry/btc",
-    "EXPIRY_ETH":       "/oracle/econ/expiry/eth",
-}
-
-# ── DeFi Metrics Oracle (NEW S89) ────────────────────────────────────────────
-
-DEFI_METRICS_ENDPOINTS = {
-    "ALL":      "/oracle/defi/metrics",
-    "AAVE":     "/oracle/defi/metrics/aave",
-    "COMPOUND": "/oracle/defi/metrics/compound",
-    "MORPHO":   "/oracle/defi/metrics/morpho",
-    "SPARK":    "/oracle/defi/metrics/spark",
-    "SKY":      "/oracle/defi/metrics/sky",
-}
-
-# ── Liquidation Flow Oracle (NEW S89) ────────────────────────────────────────
-
-LIQ_FLOW_ENDPOINTS = {
-    "BTC": "/oracle/liq-flow/btc",
-    "ETH": "/oracle/liq-flow/eth",
-    "SOL": "/oracle/liq-flow/sol",
-}
-
-# ── Signed Historical Data Oracle (NEW S89) ──────────────────────────────────
-
-HISTORY_ENDPOINTS = {
-    "SPOT_BTC_USD":   "/oracle/history/spot/btc/usd",
-    "SPOT_ETH_USD":   "/oracle/history/spot/eth/usd",
-    "SPOT_SOL_USD":   "/oracle/history/spot/sol/usd",
-    "FUNDING_BTC":    "/oracle/history/funding/btc/usd",
-    "FUNDING_ETH":    "/oracle/history/funding/eth/usd",
-    "MSXI_BTCUSD":    "/oracle/history/index/msxi/btcusd",
-    "MSXI_ETHUSD":    "/oracle/history/index/msxi/ethusd",
-    "MSVI_BTCUSD":    "/oracle/history/index/msvi/btcusd",
-    "MSVI_ETHUSD":    "/oracle/history/index/msvi/ethusd",
-    "MSSI":           "/oracle/history/index/mssi",
-    "MSTI":           "/oracle/history/index/msti",
-}
-
-# ── Layer 2 — Oracle Information ─────────────────────────────────────────────
-
-SYNOPSIS_ENDPOINTS = {
-    "MARKET": "/oracle/synopsis/market",
-}
-
-PERP_REGIME_ENDPOINTS = {
-    "BTC": "/oracle/perp/btc",
-    "ETH": "/oracle/perp/eth",
-    "SOL": "/oracle/perp/sol",
-}
-
-TRADFI_REGIME_ENDPOINTS = {
-    "EQUITY": "/oracle/regime/equity",        # RISK_ON / NEUTRAL / STRESS / PANIC. $0.10
-    "LIQUIDITY": "/oracle/regime/liquidity",  # DEEP / NORMAL / THIN / FRAGILE. $0.10
-}
-
-# ── Equity/TradFi Indices ─────────────────────────────────────────────────────
-
-EQUITY_INDICES = {
-    "MESI": "/oracle/stress/equity",       # Equity Stress Index — VIX/credit/yield curve/DXY. $0.05
-    "MNVI": "/oracle/volatility/nq/usd",   # NQ Volatility Index — RV/IV/TS/SK/PCR. $0.05
-    "MSLI": "/oracle/leadership/equity",   # Leadership Index — ETF ratios (IVW/IVE, XLK/SPY, IWM/SPY, sectors). $0.05
-    "MSBI": "/oracle/breadth/equity",      # Breadth Index — sector 20DMA participation, RSP/SPY momentum. $0.05
-}
-
-EQUITY_REGIME_ENDPOINT = "/oracle/regime/equity/composite"  # MSERC — $0.10
-MSRI_ENDPOINT = "/oracle/rotation/equity"  # MSRI — $0.10
-
-# ── Layer 3 — Oracle Intelligence ────────────────────────────────────────────
-
-ORACLE_INTEL_ENDPOINTS = {
-    "MACRO_RISK":        "/oracle/intel/macro/risk",
-    "PERP_SETUP":        "/oracle/intel/perp/setup",
-    "DEFI_OPPORTUNITY":  "/oracle/intel/defi/opportunity",
-    "REGIME_CHANGE":     "/oracle/intel/regime/change",      # $0.50 — perp transition vs 2h ago
-    "DIVERGENCE":        "/oracle/intel/divergence",          # $0.50 — cross-asset divergence NONE→EXTREME
-    "CONSENSUS":         "/oracle/intel/consensus",           # $0.50 — weighted regime vote STRONG→CONFLICTED
-    "PERSISTENCE":       "/oracle/intel/regime/persistence",  # $0.15 — duration/percentile/remaining. ?currency=BTC|ETH|SOL
-}
+# The generator writes this file; this asserts it wrote all of it. A truncated
+# catalogue would silently shrink coverage and every missing route would read as
+# "unknown route" rather than as a bug.
+assert TOTAL_ROUTES == 214, f"config.py is truncated: {TOTAL_ROUTES} routes, expected 214"
