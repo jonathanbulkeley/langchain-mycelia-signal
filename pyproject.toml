@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-mycelia-signal"
-version = "3.0.0"
+dynamic = ["version"]
 description = "LangChain tools for Mycelia Signal: 35 parameterised tools covering 213 of the API's 214 priced endpoints. Signed oracle data -- prices, FX, indices, derivatives, options surfaces, DeFi, compute, LLM inference, macro, prediction markets, regimes and intelligence. Automatic x402 payment. Also available as an MCP server."
 readme = "README.md"
 license = { text = "MIT" }
@@ -56,10 +56,17 @@ Documentation = "https://myceliasignal.com/docs"
 Repository = "https://github.com/jonathanbulkeley/langchain-mycelia-signal"
 "Bug Tracker" = "https://github.com/jonathanbulkeley/langchain-mycelia-signal/issues"
 
+[tool.hatch.version]
+# One source of truth. Declaring the version here AND in __init__ is how they drift.
+path = "langchain_mycelia_signal/config.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["langchain_mycelia_signal"]
 
 [tool.pytest.ini_options]
+markers = [
+    "network: hits the live /.well-known/x402 to diff every price against the proxy",
+]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

@@ -39,7 +39,8 @@ What these tools do NOT do
 Docs: https://myceliasignal.com/docs
 """
 
-from .config import ROUTES, TOTAL_ROUTES, describe, get_price_usd, is_paid_mode
+from .config import (ROUTES, TOTAL_ROUTES, __version__, describe, get_price_usd,
+                     is_paid_mode, price_for, route_key)
 from .tools import (
     get_mycelia_basis,
     get_mycelia_compute,
@@ -174,6 +175,5 @@ def _tool_name(t) -> str:
     return getattr(t, "name", None) or getattr(t, "__name__", "")
 
 
-__all__ = ["MyceliaSignalTools", "ROUTES", "TOTAL_ROUTES", "describe",
-           "get_price_usd", "is_paid_mode"] + [_tool_name(t) for t in _ALL_TOOLS]
-__version__ = "3.0.0"
+__all__ = ["MyceliaSignalTools", "ROUTES", "TOTAL_ROUTES", "__version__",
+           "describe", "get_price_usd", "price_for", "route_key", "is_paid_mode"] + [_tool_name(t) for t in _ALL_TOOLS]

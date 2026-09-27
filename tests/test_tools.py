@@ -5,10 +5,14 @@ WHY THESE TESTS LOOK LIKE THIS. The suite they replace contained:
     assert get_price_usd("US_CPI") == "$0.10"
     assert get_price_usd("WTI")    == "$0.10"
 
-The proxy charges $1.00 for both. The test asserted the same wrong number the code
-returned, so it passed for six releases while the package quoted agents a tenth of
-what a call costs. A test that repeats the implementation's assumption confirms the
-bug; it does not catch it.
+The proxy charges $1.00 for both. But that assertion never even ran: the file had a
+syntax error at line 178 -- an empty test body followed immediately by another def --
+so pytest failed at collection and NOTHING in the suite executed, across six
+releases. The file also still described itself as testing v2.2.0 and asserted
+len(tools) == 17.
+
+Two lessons, not one. A test that repeats the implementation's assumption confirms
+the bug rather than catching it. And a suite nobody runs protects nothing at all.
 
 So nothing here asserts a price from memory. Prices are checked against the LIVE
 /.well-known/x402 document -- a source outside this package -- and the structural
@@ -186,3 +190,26 @@ def test_attestation_fields_survive_formatting():
     }, "title")
     assert "v1|PRICE|BTCUSD|84000" in out
     assert "deadbeef" in out and "cafebabe" in out
+
+
+def test_version_has_one_home():
+    """__version__ lived in both __init__.py and pyproject.toml until 3.0.1.
+    pyproject now reads it from config.py via hatch's dynamic version."""
+    import re
+    cfg = open(os.path.join(PKG, "config.py"), encoding="utf-8").read()
+    init = open(os.path.join(PKG, "__init__.py"), encoding="utf-8").read()
+    proj = open(os.path.join(HERE, "pyproject.toml"), encoding="utf-8").read()
+    assert re.search(r'^__version__ = "', cfg, re.M), "config.py must declare it"
+    assert not re.search(r'^__version__ = "', init, re.M), "__init__ must import it"
+    assert 'dynamic = ["version"]' in proj, "pyproject must not hardcode a version"
+    assert re.search(r'^version = "', proj, re.M) is None
+
+
+def test_requests_identify_the_package():
+    """Without a User-Agent every call is an anonymous python-httpx and the
+    operator cannot tell package traffic from anything else."""
+    from langchain_mycelia_signal.config import USER_AGENT, __version__
+    assert USER_AGENT.startswith("langchain-mycelia-signal/")
+    assert __version__ in USER_AGENT
+    src = open(os.path.join(PKG, "client.py"), encoding="utf-8").read()
+    assert "USER_AGENT" in src and "User-Agent" in src

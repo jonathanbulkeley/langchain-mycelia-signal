@@ -21,8 +21,8 @@ from typing import Any
 
 import httpx
 
-from .config import (API_BASE_URL, describe, get_wallet_key, is_paid_mode,
-                     price_for, route_key)
+from .config import (API_BASE_URL, USER_AGENT, describe, get_wallet_key,
+                     is_paid_mode, price_for, route_key)
 
 REQUEST_TIMEOUT = 30
 _PAID_CLIENT: Any = None
@@ -86,7 +86,14 @@ def fetch_json(url: str) -> dict:
     caller must be able to tell a real answer from a failed one.
     """
     path = url[len(API_BASE_URL):] if url.startswith(API_BASE_URL) else url
-    with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True) as http:
+    # Identify the package. Without this every call is an anonymous python-httpx
+    # and the operator cannot tell package traffic from anything else -- on
+    # 2026-09-27 three external httpx clients hit the API and there was no way to
+    # know whether any was this package. The MCP server solved the same problem
+    # with /mcp/<tool> resource paths; this is the HTTP equivalent.
+    ua = {"User-Agent": USER_AGENT}
+    with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True,
+                      headers=ua) as http:
         try:
             r = http.get(url)
             if r.status_code == 200:

@@ -13,7 +13,13 @@ claim about it, and claims rot.
 214 priced routes across 36 families.
 """
 
+# THE version. pyproject reads it from here via hatch's dynamic version, and
+# __init__ and client import it. It lived in two files until 2026-09-27, which is
+# the same drift that put four different endpoint counts in four documents.
+__version__ = "3.0.1"
+
 API_BASE_URL = "https://api.myceliasignal.com"
+USER_AGENT = f"langchain-mycelia-signal/{__version__} (+https://myceliasignal.com)"
 
 # path -> {"price": "0.01", "desc": "..."} exactly as routes.ts declares it.
 ROUTES: dict[str, dict[str, str]] = {
